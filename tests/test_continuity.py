@@ -160,9 +160,9 @@ class ContinuityTests(unittest.TestCase):
                   "person:evelyn", "location_id", "hq")
         self.fact(2, "에블린은 창고에 있었다.\n", "location",
                   "person:evelyn", "location_id", "warehouse")
-        self.fact(2, "월터는 항구에 있었다.\n", "location",
+        self.fact(3, "월터는 항구에 있었다.\n", "location",
                   "person:walter", "location_id", "port")
-        result = self.check(2)
+        result = self.check(3)
         self.assertEqual(result["counts"]["NEEDS_REVIEW"], 1)
         self.assertEqual(result["counts"]["CONFIRMED_CONFLICT"], 0)
 
