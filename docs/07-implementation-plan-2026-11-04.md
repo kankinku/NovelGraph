@@ -25,14 +25,14 @@
 | Python | 3.12.3 | 1차 구현 기준 |
 | SQLite | Python 내장 3.45.1 | 기본 상태 저장소 후보 |
 | Git | 2.43.0 | 사용 가능 |
-| Graphify / uv / pytest | 설치되지 않음 | 타당성 확인 후 필요한 것만 설치 |
+| Graphify / uv / pytest | Graphify `graphifyy==0.9.102` 격리 설치·호환성 검증 완료. `uv`·`pytest`는 별도로 설치하지 않음 | 테스트는 `unittest`로 Moon에서 73/73 통과 |
 | GitHub | `kankinku/NovelGraph` 공개, main, 쓰기 권한 | 설계/코드만 게시, 소설 원문/사용자 자료 비공개 |
 | Moon MCP | 파일 작업 및 명령 실행 성공 | 기본 연결 유지 |
 | GitHub CLI | 미로그인 | GitHub 연결 도구로 게시; Moon CLI 직접 push는 후속 설정 필요 |
 | 로컬 기준 사본 | `/shared/NovelGraph`에 main 복제 성공 | 작업 기준은 이 사본으로 통일 |
 | 과거 NovelGraph | `작가/_tools/novelgraph`, 커밋 `909e00d` 회고 기록만 있음 | 구형 원본 존재·복구 확인 전 미검증 |
 
-현재 저장소는 문서뿐이다. 원본 프로그램과 회고상 '690/690 테스트', 105개 후보, 51노드/133관계는 **검증되지 않은 과거 기록**이다.
+현재 저장소에는 NovelGraph Python/SQLite CLI, 승인 사건 원장, 연속성 검사기, Graphify 어댑터, 평가·배치 준비 도구 및 테스트가 구현되어 있다. 과거 별도 Moon에 있던 **구형 원본 프로그램**과 회고상 '690/690 테스트', 105개 후보, 51노드/133관계는 **복구되지 않은 과거 기록**으로 현재 테스트 결과와 구별한다.
 
 ## 2. 아키텍처 결정
 
