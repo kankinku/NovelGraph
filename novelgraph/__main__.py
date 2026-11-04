@@ -314,6 +314,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     review_readiness.add_argument("--worksheet", required=True)
 
+    packets = commands.add_parser(
+        "prepare-review-packets", help="generate separate blind and candidate review packets"
+    )
+    packets.add_argument("--worksheet", required=True)
+    packets.add_argument("--blind-output", required=True)
+    packets.add_argument("--comparison-output", required=True)
+
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -340,6 +347,12 @@ def main(argv: list[str] | None = None) -> int:
             from .review_readiness import check_review_readiness
             value = check_review_readiness(
                 root, _read_json(_private_file(args.worksheet, root))
+            )
+        elif args.command == "prepare-review-packets":
+            from .review_packets import prepare_review_packets
+            value = prepare_review_packets(
+                root, _read_json(_private_file(args.worksheet, root)),
+                args.blind_output, args.comparison_output,
             )
         elif args.command == "pilot-evaluate":
             from .pilot_eval import evaluate_pilot
