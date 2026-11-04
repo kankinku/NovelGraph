@@ -18,7 +18,7 @@ DEFAULT_ROOT = Path("/shared/NovelGraph-data")
 DB_NAME = "novelgraph.sqlite"
 MAX_INPUT_BYTES = 4 * 1024 * 1024
 WORK_ID = re.compile(r"^[\w.-]{1,100}$", re.UNICODE)
-KINDS = {"entity", "event", "relation", "state_change"}
+KINDS = {"entity", "event", "relation", "state_change", "continuity_fact"}
 
 
 def _fatal(message: str) -> None:
@@ -258,6 +258,11 @@ def main(argv: list[str] | None = None) -> int:
     state_cmd = commands.add_parser("world-state", help="replay events as known at an episode")
     state_cmd.add_argument("--work-id", required=True)
     state_cmd.add_argument("--episode", required=True, type=int)
+    continuity = commands.add_parser(
+        "check-continuity", help="compare approved narrative facts with source references"
+    )
+    continuity.add_argument("--work-id", required=True)
+    continuity.add_argument("--episode", required=True, type=int)
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -275,6 +280,17 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "list-candidates":
             value = list_candidates(root, _check_work_id(args.work_id),
                                     _check_episode(args.episode))
+        elif args.command == "check-continuity":
+            from .continuity import check_continuity
+            db_path = root / DB_NAME
+            if not db_path.is_file():
+                _fatal("candidate database does not exist")
+            db = _connect(db_path)
+            try:
+                value = check_continuity(db, _check_work_id(args.work_id),
+                                         _check_episode(args.episode))
+            finally:
+                db.close()
         else:
             from .world_state import approve_and_apply, review_candidate, world_state
             db_path = root / DB_NAME
