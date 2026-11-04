@@ -1,6 +1,6 @@
 # [5/9] 승인된 사건의 동적 세계 상태 엔진
 
-> 상태: **GitHub·Moon 실행 검증 완료 (23/23)**. 기준 저장소: `kankinku/NovelGraph`, 브랜치 `feat/world-state-step5`. Moon 연결 복구 후 별도 작업 트리 `/shared/NovelGraph-step5`에서 전 테스트를 재실행하여 23개 모두 통과. `main` 병합·기준 경로 동기화는 후속 Git 처리. 공개 GitHub에는 가상 테스트 데이터와 코드만 보관한다.
+> 상태: **GitHub·Moon 실행 검증 완료 (23/23)**. 기준 저장소: `kankinku/NovelGraph`, 브랜치 `feat/world-state-step5`. Moon 연결 복구 후 별도 작업 트리 `/shared/NovelGraph-step5`에서 23개 테스트를 모두 통과했다. PR #1은 GitHub `main`에 squash 병합됐으며, 기준 경로 `/shared/NovelGraph`를 병합 커밋 `df54ac8`로 동기화하고 23개 테스트를 재실행했다(23/23, 28.778초, 작업 트리 CLEAN). 공개 GitHub에는 가상 테스트 데이터와 코드만 보관한다.
 
 ## 1. 처리 흐름
 
