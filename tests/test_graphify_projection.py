@@ -268,6 +268,40 @@ class GraphifyProjectionTests(unittest.TestCase):
         self.assertTrue(graph.has_edge(f"assertion:{f}", f"evidence:{f}"))
         self.assertTrue(graph.has_edge("entity:evelyn", f"assertion:{f}"))
 
+    def test_extra_graph_data_is_rejected_even_when_fingerprint_is_unchanged(self):
+        self.stage(1, [("에블린이 등장했다.", "entity",
+                        self.entity("evelyn", "에블린", "person"))])
+        self.export(1)
+        data = json.loads(self.graph_path.read_text(encoding="utf-8"))
+        data["nodes"][0]["injected_quote"] = "private invented content"
+        self.graph_path.write_text(json.dumps(data), encoding="utf-8")
+        self.assertIn("attributes differ", self.trace(
+            1, "entity:evelyn", "entity:evelyn", expected=2))
+
+    def test_malformed_entity_type_fails_closed(self):
+        self.stage(1, [("불확실한 대상이 언급된다.", "entity",
+                        {"entity_id": "unknown", "name": "미상",
+                         "entity_type": ["person", "organization"]})])
+        self.assertIn("unsupported entity_type", self.export(1, expected=2))
+        self.assertFalse(self.graph_path.exists())
+
+    def test_reverse_graph_path_preserves_direction(self):
+        _, _, event = self.stage(1, [
+            ("에블린이 등장했다.", "entity",
+             self.entity("evelyn", "에블린", "person")),
+            ("오로라가 등장했다.", "entity",
+             self.entity("aurora", "오로라", "organization")),
+            ("에블린이 오로라를 방문했다.", "event",
+             {"event_type": "visit", "actor_id": "evelyn",
+              "target_id": "aurora"}),
+        ])
+        self.export(1)
+        out = self.trace(1, "entity:aurora", "entity:evelyn")
+        self.assertEqual(out["path"], ["entity:aurora", f"event:{event}",
+                                       "entity:evelyn"])
+        self.assertTrue(all(not edge["traversed_forward"] for edge in out["hops"]))
+        self.assertIn(event, [record["candidate_id"] for record in out["evidence"]])
+
     def test_export_does_not_change_sqlite_counts(self):
         self.stage(1, [("에블린이 등장한다.", "entity",
                         self.entity("evelyn", "에블린", "person"))])
