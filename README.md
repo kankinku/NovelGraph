@@ -38,6 +38,6 @@
 
 ## 현재 상태
 
-이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 현재 승인 로그·동적 세계 상태 엔진은 구현되어 가상 테스트 23개가 GitHub와 Moon에서 통과했다. 연속성 검출기는 GitHub `main`에 병합됐다. Graphify 실제 투영·근거 역추적까지 개발 브랜치에서 구현했고, 가상 시나리오 **56개가 GitHub Actions에서 통과했다**. 다만 Moon `/shared/NovelGraph`의 6·7단계 코드 동기화·재실행은 연결 장애로 아직 확인하지 못했고, 이전 Moon 원본 복구도 미완료다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
+이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 현재 승인 로그·동적 세계 상태 엔진은 구현되어 가상 테스트 23개가 GitHub와 Moon에서 통과했다. 연속성 검출기는 GitHub `main`에 병합됐다. Graphify 실제 투영·근거 역추적까지 GitHub `main`에 병합했고, 가상 시나리오 **56개가 GitHub Actions에서 통과했다**. 다만 Moon `/shared/NovelGraph`의 6·7단계 코드 동기화·재실행은 연결 장애로 아직 확인하지 못했고, 이전 Moon 원본 복구도 미완료다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
 
 관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 승인 사실·사건의 파생 그래프 연동 및 원문 SHA·회차·위치 역추적이 [7/9]에서 구현되어 CI 검증되었다. 실제 원고 파일의 자동 복원과 Moon 검증은 아직 미완료.
