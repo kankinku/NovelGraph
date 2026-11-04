@@ -296,6 +296,13 @@ def main(argv: list[str] | None = None) -> int:
     trace_cmd.add_argument("--from-node", required=True)
     trace_cmd.add_argument("--to-node", required=True)
 
+    pilot = commands.add_parser(
+        "pilot-evaluate", help="score predictions against independently reviewed gold cases"
+    )
+    pilot.add_argument("--manifest", required=True)
+    pilot.add_argument("--gold", required=True)
+    pilot.add_argument("--predictions", required=True)
+
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -313,6 +320,14 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "list-candidates":
             value = list_candidates(root, _check_work_id(args.work_id),
                                     _check_episode(args.episode))
+        elif args.command == "pilot-evaluate":
+            from .pilot_eval import evaluate_pilot
+            value = evaluate_pilot(
+                root,
+                _read_json(_private_file(args.manifest, root)),
+                _read_json(_private_file(args.gold, root)),
+                _read_json(_private_file(args.predictions, root)),
+            )
         elif args.command in ("graphify-export", "graphify-trace"):
             from .graphify_bridge import export_graph, trace_graph
             db_path = root / DB_NAME

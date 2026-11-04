@@ -1,6 +1,6 @@
 # NovelGraph 구현 계획 — 2026-11-04
 
-> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / [2/9] 기준 환경 구성 완료 / [3/9] Graphify 격리 설치·호환성 검증 완료 / [4/9] 후보 격리 완료 / [5/9] 동적 상태 엔진 완료 / [6/9] 연속성 검출기 main 병합·CI 통과 / [7/9] Graphify 실질 연동 main 병합·GitHub CI 56/56 통과, Moon 동기화·검증 대기**. [환경 기준](09-environment-baseline-2026-11-04.md), [Graphify 실증](10-graphify-feasibility-2026-11-04.md), [후보 수집 MVP](11-candidate-intake-mvp-2026-11-04.md), [동적 세계 상태 엔진](12-world-state-step5-2026-11-04.md), [연속성 검출기](13-continuity-step6-2026-11-04.md), [Graphify 실제 연동](14-graphify-step7-2026-11-04.md), [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
+> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / [2/9] 기준 환경 구성 완료 / [3/9] Graphify 격리 설치·호환성 검증 완료 / [4/9] 후보 격리 완료 / [5/9] 동적 상태 엔진 완료 / [6/9] 연속성 검출기 main 병합·CI 통과 / [7/9] Graphify main 병합·GitHub CI 56/56 통과, Moon 코드 동기화·부분 테스트 통과 / [8/9] 정답표 평가기 준비·실제 1~3화 평가 대기**. [환경 기준](09-environment-baseline-2026-11-04.md), [Graphify 실증](10-graphify-feasibility-2026-11-04.md), [후보 수집 MVP](11-candidate-intake-mvp-2026-11-04.md), [동적 세계 상태 엔진](12-world-state-step5-2026-11-04.md), [연속성 검출기](13-continuity-step6-2026-11-04.md), [Graphify 실제 연동](14-graphify-step7-2026-11-04.md), [파일럿 평가 기준](15-pilot-evaluation-step8-2026-11-04.md), [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
 > 근거: 저장소의 01~06 문서, 2026-11-04 Moon 실환경 점검, Graphify 공개 문서. **구형 NovelGraph 소스·과거 테스트 로그는 미검증**이다.
 
 ## 0. 목표와 비목표
@@ -119,7 +119,7 @@ NovelGraph CLI (Python): 입력 검증, 출처 일치, 저장, 상태 재생, �
 
 **보류:** 신규 독립 MCP, 웹 대시보드, Neo4j/벡터 DB, Graphify 대규모 포크, 장기 실행 자동 에이전트, 범용 도메인 프레임워크, 자동 집필. 요청/실증으로 필요해질 때만 재검토한다.
 
-**다음 수행 작업:** Moon 접속 시 [6·7/9] 로컬 동기화·전수 테스트 재실행. 이후 [8/9] 원문 파일 해시·회차를 이용한 실제 1~3화 파일럿과 정답표 비교. 기존 원본 복구는 별도 병행 과제로 유지한다.
+**다음 수행 작업:** [7/9] Moon Graphify 투영 테스트 마무리, [8/9] 대상 작품 1~3화 원본 비공개 확보와 독립 정답표 작성, ChatGPT 의미 추출 후 평가. 다른 작품 자료를 임의로 혼합하지 않는다. 기존 원본 복구는 별도 병행 과제로 유지한다.
 
 ## 출처와 한계
 
