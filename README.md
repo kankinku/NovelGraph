@@ -49,6 +49,7 @@
 - [[실사용 전환 05/12] 모델 평가와 공식 승인 로그 분리·무결성 점검](docs/25-model-review-and-approval-boundary-2026-11-05.md)
 - [[실사용 전환 06/12] 계약 제안·거절 상태와 실제 지급·지분 분리](docs/26-contract-lifecycle-phase6-2026-11-05.md)
 - [[실사용 전환 07/12] 원고 판본 변경 및 승인 근거 영향 검사](docs/27-source-version-audit-phase7-2026-11-05.md)
+- [[실사용 전환 08/12] 연속성 판정 및 뒤늦게 공개된 과거 사실 보정](docs/28-continuity-accuracy-phase8-2026-11-05.md)
 
 ## 현재 상태
 
