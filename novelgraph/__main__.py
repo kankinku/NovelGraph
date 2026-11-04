@@ -357,6 +357,12 @@ def main(argv: list[str] | None = None) -> int:
     packets.add_argument("--blind-output", required=True)
     packets.add_argument("--comparison-output", required=True)
 
+    identity = commands.add_parser(
+        "identity-audit", help="report possible staged identity collisions without merging"
+    )
+    identity.add_argument("--work-id", required=True)
+    identity.add_argument("--episode", required=True, type=int)
+
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -394,6 +400,18 @@ def main(argv: list[str] | None = None) -> int:
                 root, _read_json(_private_file(args.worksheet, root)),
                 args.blind_output, args.comparison_output,
             )
+        elif args.command == "identity-audit":
+            from .identity_audit import audit_identities
+            db_path = root / DB_NAME
+            if db_path.is_symlink() or not db_path.is_file():
+                _fatal("candidate database does not exist or is not a regular file")
+            if db_path.stat().st_mode & 0o077:
+                _fatal("candidate database must be private")
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+                value = audit_identities(
+                    db, _check_work_id(args.work_id),
+                    _check_episode(args.episode),
+                )
         elif args.command == "pilot-evaluate":
             from .pilot_eval import evaluate_pilot
             value = evaluate_pilot(

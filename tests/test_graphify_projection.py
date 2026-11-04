@@ -193,6 +193,42 @@ class GraphifyProjectionTests(unittest.TestCase):
         self.assertTrue(g.has_edge(f"relation:{first}", f"evidence:{first}"))
         self.assertTrue(g.has_edge(f"relation:{second}", f"evidence:{second}"))
 
+    def test_same_display_name_never_automatically_merges_distinct_ids(self):
+        self.stage(1, [
+            ("정서연이라는 이름의 첫 번째 사람이 있다.", "entity",
+             self.entity("seo_a", "정서연", "person")),
+            ("정서연이라는 이름의 다른 사람이 있다.", "entity",
+             self.entity("seo_b", "정서연", "person")),
+        ])
+        self.export(1)
+        graph = load_node_link_graph(self.graph_path)
+        self.assertIn("entity:seo_a", graph)
+        self.assertIn("entity:seo_b", graph)
+        self.assertNotEqual("entity:seo_a", "entity:seo_b")
+        self.assertIn("no relationship path", self.trace(
+            1, "entity:seo_a", "entity:seo_b", expected=2))
+
+    def test_explicit_approved_same_person_relation_preserves_two_ids_and_evidence(self):
+        a, b, alias = self.stage(1, [
+            ("정서연이 등장했다.", "entity",
+             self.entity("seo_full", "정서연", "person")),
+            ("정 변호사라는 호칭이 나왔다.", "entity",
+             self.entity("seo_title", "정 변호사", "person")),
+            ("정 변호사는 정서연과 같은 사람이다.", "relation",
+             {"source_id": "seo_title", "target_id": "seo_full",
+              "relation_type": "same_person_as"}),
+        ])
+        self.export(1)
+        graph = load_node_link_graph(self.graph_path)
+        self.assertIn("entity:seo_full", graph)
+        self.assertIn("entity:seo_title", graph)
+        self.assertIn(f"relation:{alias}", graph)
+        self.assertTrue(graph.has_edge(f"relation:{alias}", f"evidence:{alias}"))
+        trace = self.trace(1, "entity:seo_title", "entity:seo_full")
+        self.assertIn(alias, [entry["candidate_id"] for entry in trace["evidence"]])
+        self.assertEqual(graph.nodes["entity:seo_title"]["label"], "정 변호사")
+        self.assertEqual(graph.nodes["entity:seo_full"]["label"], "정서연")
+
     def test_graph_must_be_regenerated_after_approval(self):
         self.stage(1, [("에블린이 등장했다.", "entity",
                         self.entity("evelyn", "에블린", "person"))])
