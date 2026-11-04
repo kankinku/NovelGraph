@@ -41,9 +41,9 @@
 - [x] 기존 `main`을 기준으로 격리 worktree 생성.
 - [x] 본문·후보·DB 40개 비공개 파일을 보존하고 SQLite 2개를 online backup + `integrity_check`로 검증.
 - [x] 실제 DB 상태 확인: 1~5화 26건 전부 proposed, 적용 사건 0건. 별도 모델 검토 사본과 혼합하지 않음.
-- [ ] `/shared/NovelGraph/.venv/bin/python -m unittest discover -s tests -v` 전체 73개 성공 결과 기록.
-- [ ] 위험 우선순위 감사 및 공개 파일 목록 검사.
-- [ ] 독립 리뷰 후 단계 판정.
+- [x] `/shared/NovelGraph/.venv/bin/python -m unittest discover -s tests -v` 전체 73개 성공 재현 (201.135초).
+- [x] 위험 우선순위 감사 및 공개 파일 목록 검사. 결과는 `docs/18-production-baseline-2026-11-05.md`.
+- [x] 변경 Diff·경로·README 링크를 자체 리뷰하고 GitHub PR 생성. 별도 독립 코드 리뷰는 수행하지 않았음을 기록.
 
 **Gate:** 73/73 테스트 재현, SQLite integrity OK, 원본 SHA·원고 미변경, private 원고의 Git 추적 0건.
 
