@@ -1,0 +1,54 @@
+# Python environment and generated files
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.credentials
+credentials.json
+
+# User novels, private input, and derived analysis data
+data/
+datasets/
+private/
+manuscripts/
+novels/
+originals/
+원고/
+원본/
+graphify-data/
+analysis-output/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.jsonl
+*.epub
+*.docx
+*.pdf
+*.zip
+
+# Local/editor and OS artifacts
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.bak
+*.backup
