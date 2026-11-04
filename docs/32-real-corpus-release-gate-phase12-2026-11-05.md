@@ -95,7 +95,7 @@ ROOT=/shared/NovelGraph-data/works/<private-work>
 
 ## 7. 작업 상태·종료 조건
 
-- **12단계 '현상 전수 감사 및 출시 게이트 판정' 업무는 수행 완료.**
+- **12단계 '현상 전수 감사 및 출시 게이트 판정' 업무는 수행 완료.** Moon에서 `/shared/NovelGraph/.venv/bin/python -m unittest discover -s tests -v` 전체 **178/178 통과 (370.766초)**를 재실행했으며, 비공개 기록은 `/shared/NovelGraph-data/research/production-phase12-full-suite.log`에 보관했다. 앞선 11단계 기록의 177건보다 **현행 실제 테스트 수 178건**을 우선한다.
 - **12단계 '전체 대상 회차 의미 추출·인간 정답표·실전 정확도 측정' 업무는 입력·검수 부재로 미완료.**
 - 현재 출시 상태는 **NO-GO**, 관련 기능은 비공개 pilot 수준에서만 사용할 것.
 - **사람 검수 및 동일 작품 전 회차가 추가로 확보되면 이 판정을 다시 수행**한다. 새 파일을 받기 전까지 완료·95% 달성을 보고하지 않는다.
