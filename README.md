@@ -48,6 +48,7 @@
 - [[실사용 전환 04/12] 인물 ID 충돌 사전 검사](docs/24-identity-audit-phase4-2026-11-05.md)
 - [[실사용 전환 05/12] 모델 평가와 공식 승인 로그 분리·무결성 점검](docs/25-model-review-and-approval-boundary-2026-11-05.md)
 - [[실사용 전환 06/12] 계약 제안·거절 상태와 실제 지급·지분 분리](docs/26-contract-lifecycle-phase6-2026-11-05.md)
+- [[실사용 전환 07/12] 원고 판본 변경 및 승인 근거 영향 검사](docs/27-source-version-audit-phase7-2026-11-05.md)
 
 ## 현재 상태
 
