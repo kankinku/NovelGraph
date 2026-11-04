@@ -212,6 +212,56 @@ def preflight_candidates(root: Path, source: Path, input_file: Path) -> dict:
     }
 
 
+def audit_source_version(root: Path, work: str, episode: int, source: Path) -> dict:
+    """Compare current private source bytes to its immutable registered version."""
+    _, observed_sha, _ = _source(source)
+    db_path = root / DB_NAME
+    if db_path.is_symlink() or not db_path.is_file():
+        _fatal("candidate database does not exist or is not a regular file")
+    if db_path.stat().st_mode & 0o077:
+        _fatal("candidate database must be private")
+    with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+        registered = db.execute(
+            "SELECT source_sha256 FROM episodes WHERE work_id=? AND episode=?",
+            (work, episode),
+        ).fetchone()
+        if not registered:
+            _fatal("episode is not registered")
+        rows = db.execute(
+            "SELECT candidate_id,status FROM candidates "
+            "WHERE work_id=? AND episode=? ORDER BY candidate_id",
+            (work, episode),
+        ).fetchall()
+        has_applied_table = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='applied_events'"
+        ).fetchone()
+        applied = []
+        if has_applied_table:
+            applied = [row[0] for row in db.execute(
+                "SELECT candidate_id FROM applied_events "
+                "WHERE work_id=? AND source_episode=? ORDER BY candidate_id",
+                (work, episode),
+            ).fetchall()]
+    same = observed_sha == registered[0]
+    counts = {key: 0 for key in ("proposed", "approved", "rejected")}
+    for _, state in rows:
+        counts[state] += 1
+    return {
+        "work_id": work, "episode": episode,
+        "registered_source_sha256": registered[0],
+        "observed_source_sha256": observed_sha,
+        "source_matches_registered": same,
+        "requires_new_version_workflow": not same,
+        "candidate_counts": counts,
+        "affected_approved_ids": [] if same else sorted(
+            cid for cid, state in rows if state == "approved"
+        ),
+        "affected_applied_ids": [] if same else applied,
+        "read_only": True, "source_quotes_included": False,
+        "human_review_completed": False, "world_state_mutations": 0,
+    }
+
+
 def status(root: Path, work: str, episode: int) -> dict:
     db_path = root / DB_NAME
     if not db_path.is_file():
@@ -288,6 +338,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     preflight.add_argument("--source", required=True)
     preflight.add_argument("--input", required=True)
+    version = commands.add_parser(
+        "source-version-audit", help="read-only source SHA drift and candidate impact audit"
+    )
+    version.add_argument("--work-id", required=True)
+    version.add_argument("--episode", required=True, type=int)
+    version.add_argument("--source", required=True)
+
     get_status = commands.add_parser("status", help="view candidate counts without leaking excerpts")
     get_status.add_argument("--work-id", required=True)
     get_status.add_argument("--episode", required=True, type=int)
@@ -394,6 +451,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "preflight-candidates":
             value = preflight_candidates(
                 root, _private_file(args.source, root), _private_file(args.input, root)
+            )
+        elif args.command == "source-version-audit":
+            value = audit_source_version(
+                root, _check_work_id(args.work_id), _check_episode(args.episode),
+                _private_file(args.source, root),
             )
         elif args.command == "status":
             value = status(root, _check_work_id(args.work_id),
