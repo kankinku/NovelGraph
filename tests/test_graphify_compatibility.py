@@ -88,10 +88,11 @@ class GraphifyCompatibilityTests(unittest.TestCase):
                 env={**os.environ, "GRAPHIFY_OUT": str(output_dir)},
                 text=True, capture_output=True, timeout=50,
             )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            raw = json.loads((output_dir / "graph.json").read_text(encoding="utf-8"))
-            self.assertEqual(len(raw["nodes"]), 0)
-            self.assertEqual(len(raw.get("links", raw.get("edges", []))), 0)
+            # graphify update scans code, not semantic claims in raw .txt files.
+            # v0.9.102 reports "No code files found" and writes no graph.
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("No code files found", result.stdout)
+            self.assertFalse((output_dir / "graph.json").exists())
 
 
 if __name__ == "__main__":
