@@ -1,6 +1,6 @@
 # NovelGraph 구현 계획 — 2026-11-04
 
-> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / [2/9] 기준 환경 구성 완료·pip 설정 미완료 / 기능 코드 구현 착수 전**. [환경 기준](09-environment-baseline-2026-11-04.md)과 [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
+> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / [2/9] 기준 환경 구성 완료 / [3/9] Graphify 격리 설치·그래프 호환성 검증 완료 / NovelGraph 본체 구현 착수 전**. [환경 기준](09-environment-baseline-2026-11-04.md), [Graphify 실증](10-graphify-feasibility-2026-11-04.md), [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
 > 근거: 저장소의 01~06 문서, 2026-11-04 Moon 실환경 점검, Graphify 공개 문서. **구형 NovelGraph 소스·과거 테스트 로그는 미검증**이다.
 
 ## 0. 목표와 비목표
@@ -119,7 +119,7 @@ NovelGraph CLI (Python): 입력 검증, 출처 일치, 저장, 상태 재생, �
 
 **보류:** 신규 독립 MCP, 웹 대시보드, Neo4j/벡터 DB, Graphify 대규모 포크, 장기 실행 자동 에이전트, 범용 도메인 프레임워크, 자동 집필. 요청/실증으로 필요해질 때만 재검토한다.
 
-**가장 먼저 수행할 작업:** [1/9] 원본 복구 확인. 복구 불가능할 때만 [2/9]부터 새 구현 착수.
+**다음 수행 작업:** [4/9] 후보 JSON 검증·격리 저장·중복 차단의 최소 CLI 구현. 기존 원본 복구는 별도 병행 과제로 유지한다.
 
 ## 출처와 한계
 
