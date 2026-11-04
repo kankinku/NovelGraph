@@ -182,6 +182,36 @@ def import_candidates(root: Path, source_path: Path, candidate_path: Path) -> di
         db.close()
 
 
+def preflight_candidates(root: Path, source: Path, input_file: Path) -> dict:
+    """Validate a proposed extraction without registering or approving anything."""
+    text, digest, _ = _source(source)
+    work, episode, records = _valid_candidates(_read_json(input_file), text, digest)
+    from .world_state import _payload
+    from .continuity import validate_fact
+
+    counts = {kind: 0 for kind in sorted(KINDS)}
+    for record in records:
+        counts[record[3]] += 1
+        if record[3] == "state_change":
+            _payload({"payload_json": record[4], "episode": episode})
+        elif record[3] == "continuity_fact":
+            validate_fact({
+                "payload_json": record[4], "episode": episode,
+                "candidate_id": record[0], "evidence_start": record[5],
+                "evidence_end": record[6], "source_sha256": digest,
+            })
+
+    return {
+        "work_id": work, "episode": episode, "source_sha256": digest,
+        "candidate_count": len(records), "kind_counts": counts,
+        "duplicate_candidate_entries": len(records) - len({r[0] for r in records}),
+        "state_change_payloads_checked": counts["state_change"],
+        "continuity_fact_payloads_checked": counts["continuity_fact"],
+        "read_only": True, "semantic_accuracy_measured": False,
+        "human_review_completed": False, "source_text_included": False,
+    }
+
+
 def status(root: Path, work: str, episode: int) -> dict:
     db_path = root / DB_NAME
     if not db_path.is_file():
@@ -252,6 +282,12 @@ def main(argv: list[str] | None = None) -> int:
     intake = commands.add_parser("import-candidates", help="validate and stage proposed claims")
     intake.add_argument("--source", required=True)
     intake.add_argument("--input", required=True)
+
+    preflight = commands.add_parser(
+        "preflight-candidates", help="check evidence and state-event structure without storing candidates"
+    )
+    preflight.add_argument("--source", required=True)
+    preflight.add_argument("--input", required=True)
     get_status = commands.add_parser("status", help="view candidate counts without leaking excerpts")
     get_status.add_argument("--work-id", required=True)
     get_status.add_argument("--episode", required=True, type=int)
@@ -330,6 +366,10 @@ def main(argv: list[str] | None = None) -> int:
                      "bytes": size, "span_format": "0-based Unicode [start,end)"}
         elif args.command == "import-candidates":
             value = import_candidates(
+                root, _private_file(args.source, root), _private_file(args.input, root)
+            )
+        elif args.command == "preflight-candidates":
+            value = preflight_candidates(
                 root, _private_file(args.source, root), _private_file(args.input, root)
             )
         elif args.command == "status":
