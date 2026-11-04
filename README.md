@@ -1,6 +1,6 @@
 # NovelGraph
 
-장편 웹소설 원고에서 서사 세계의 사실과 사건을 자동 구조화하고, 회차별 상태 변화와 연속성 충돌을 검증하는 도구의 **복구·설계 문서 저장소 초안**.
+장편 웹소설 원고에서 서사 세계의 사실과 사건을 자동 구조화하고, 회차별 상태 변화와 연속성 충돌을 검증하는 도구의 **개발 코드와 복구·설계 문서 저장소**.
 
 > **증거 수준:** 이 문서는 2026-11-04 대화에 정리된 이전 작업 회고를 바탕으로 재구성했다. 기존 NovelGraph 원본 코드·Git 커밋·테스트 로그는 현 Moon 서버에서 검증되지 않았다. 재구성 내용은 검증 완료한 코드 사양으로 간주하지 않는다.
 
@@ -34,9 +34,10 @@
 - [[4/9] 분석 후보 격리 저장 MVP (2026-11-04)](docs/11-candidate-intake-mvp-2026-11-04.md)
 - [[5/9] 동적 세계 상태 엔진 (2026-11-04)](docs/12-world-state-step5-2026-11-04.md)
 - [[6/9] 연속성 충돌 검출기 (2026-11-04)](docs/13-continuity-step6-2026-11-04.md)
+- [[7/9] Graphify 실제 연동 및 근거 역추적 (2026-11-04)](docs/14-graphify-step7-2026-11-04.md)
 
 ## 현재 상태
 
-이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 현재 승인 로그·동적 세계 상태 엔진은 구현되어 가상 테스트 23개가 GitHub와 Moon에서 통과했다. 연속성 검출기는 GitHub `main`에 병합됐으며 가상 시나리오 테스트 41개가 CI에서 통과했다. 다만 Moon `/shared/NovelGraph`의 6단계 코드 동기화·재실행은 연결 장애로 아직 확인하지 못했고, 이전 Moon 원본 복구도 미완료다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
+이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 현재 승인 로그·동적 세계 상태 엔진은 구현되어 가상 테스트 23개가 GitHub와 Moon에서 통과했다. 연속성 검출기는 GitHub `main`에 병합됐다. Graphify 실제 투영·근거 역추적까지 개발 브랜치에서 구현했고, 가상 시나리오 **55개가 GitHub Actions에서 통과했다**. 다만 Moon `/shared/NovelGraph`의 6·7단계 코드 동기화·재실행은 연결 장애로 아직 확인하지 못했고, 이전 Moon 원본 복구도 미완료다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
 
-관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 그래프 저장·조회 호환성은 확인했으나 NovelGraph 본체 연동은 [7/9] 단계에 예정.
+관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 승인 사실·사건의 파생 그래프 연동 및 원문 SHA·회차·위치 역추적이 [7/9]에서 구현되어 CI 검증되었다. 실제 원고 파일의 자동 복원과 Moon 검증은 아직 미완료.
