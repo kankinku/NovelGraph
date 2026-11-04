@@ -145,6 +145,30 @@ class GraphifyProjectionTests(unittest.TestCase):
         self.assertNotIn("entity:aurora", graph)
         self.assertEqual(result["nodes"], 2)
 
+    def test_proposed_and_refused_contracts_keep_distinct_evidence_nodes(self):
+        proposed = self.stage(1, [
+            ("가상 기업에 대한 제안을 제출했다.", "state_change",
+             {"event_type": "contract_proposed", "actor_id": "investor",
+              "contract_id": "deal-alpha", "company_id": "alpha"})
+        ], apply_states=True)[0]
+        refused = self.stage(2, [
+            ("가상 기업 제안을 거절했다.", "state_change",
+             {"event_type": "contract_refused", "actor_id": "investor",
+              "contract_id": "deal-alpha"})
+        ], apply_states=True)[0]
+        self.export(2)
+        graph = load_node_link_graph(self.graph_path)
+        for cid, event_type in [(proposed, "contract_proposed"),
+                                (refused, "contract_refused")]:
+            event = f"event:{cid}"
+            self.assertIn(event, graph)
+            self.assertEqual(graph.nodes[event]["event_type"], event_type)
+            self.assertTrue(graph.has_edge(event, f"evidence:{cid}"))
+        self.assertEqual(
+            self.cli("world-state", "--work-id", "novel", "--episode", "2")
+            ["contracts"]["deal-alpha"]["status"], "refused",
+        )
+
     def test_state_change_appears_only_after_apply(self):
         self.stage(1, [
             ("에블린이 서명했다.", "state_change",
