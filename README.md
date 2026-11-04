@@ -36,9 +36,17 @@
 - [[6/9] 연속성 충돌 검출기 (2026-11-04)](docs/13-continuity-step6-2026-11-04.md)
 - [[7/9] Graphify 실제 연동 및 근거 역추적 (2026-11-04)](docs/14-graphify-step7-2026-11-04.md)
 - [[8/9] 실제 원고 파일럿 평가 기준 및 CLI 준비 (2026-11-04)](docs/15-pilot-evaluation-step8-2026-11-04.md)
+- [[9/9] 전체 43화 처리 준비 및 체크리스트](docs/16-full-manuscript-step9-plan-2026-11-04.md)
+- [[8/9] 비공개 실제 1~5화 파일럿 실측 보고](docs/17-real-private-corpus-pilot-2026-11-04.md)
 
 ## 현재 상태
 
-이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 현재 승인 로그·동적 세계 상태 엔진은 구현되어 가상 테스트 23개가 GitHub와 Moon에서 통과했다. 연속성 검출기는 GitHub `main`에 병합됐다. Graphify 실제 투영·근거 역추적까지 GitHub `main`에 병합했고, 가상 시나리오 **56개가 GitHub Actions에서 통과했다**. Moon `/shared/NovelGraph`에 GitHub 최신 코드를 Fast-forward로 동기화했다. 기능별 재시험에서 후보 수집 10개, 연속성 18개, Graphify 기본 2개, 상태 엔진 11개가 통과했고 Graphify 실제 투영 15개는 별도 검증 중이다. [8/9] 정답표 평가 CLI는 GitHub `main`에 병합됐고, 합성 테스트 12개가 Moon 별도 작업 트리에서 통과했다. GitHub 전체 자동화 테스트도 68/68 통과했다. 실제 원고 1~3화 평가와 이전 Moon 원본 복구는 **미완료**이다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
+- **Moon 실제 검증:** 현재 구현의 전체 73개 테스트가 Moon 격리 작업 트리에서 통과했다 (2026-11-04). 후보 검증, 승인 원장, 회차별 세계 상태, 연속성, Graphify 투영, 파일럿 평가, batch-readiness를 포함한다.
+- **실제 1~5화 원고 파일럿:** 사용자 제공 원고 5건을 원본 바이트 해시와 대조하여 비공개 경로에 보존했다. ChatGPT가 근거 기반 후보 26건을 작성해 SQLite에 등록했고 **모두 proposed 상태**로 남아 있다. 모델 검토만 거친 25건의 승인 형식 실험은 **별도 shadow DB**에서 실행했으며 사람의 승인으로 간주하지 않는다. 그 실험에서 Graphify 55개 노드·58개 관계가 생성됐고 출처 추적이 동작했다.
+- **독립 품질 검증:** 인간이 검토한 골드 라벨이 없어 precision/recall/F1은 **미측정(null)**. 선택된 주장에 경고가 없었다는 사실을 소설 전체 무오류로 해석하지 않는다.
+- **[9/9] 43화 확장:** 읽기 전용 원고 해시/누락 회차/등록 및 미검수 건수 점검기 PR #5가 `main`에 병합됐다. **전체 43화 수집·분석은 미완료**다. 현재 받은 1~5화와 과거 43화 대상 작품이 동일하다고 가정하지 않는다.
+- **기존 구형 원본 복구:** 별도의 Moon 인스턴스에 있던 909e00d 원본은 미복구 상태다. 새 구현과 병행하되 원본 확보 시 비교한다.
 
-관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 승인 사실·사건의 파생 그래프 연동 및 원문 SHA·회차·위치 역추적이 [7/9]에서 구현되어 CI 검증되었다. 실제 원고 파일의 자동 복원과 Moon 검증은 아직 미완료.
+자세한 실측과 한계: [비공개 1~5화 파일럿 보고](docs/17-real-private-corpus-pilot-2026-11-04.md), [개발 계획](docs/07-implementation-plan-2026-11-04.md).
+
+Graphify: https://github.com/Graphify-Labs/graphify — 승인된 후보의 파생 그래프 구축과 근거 역추적에 사용하며, 공식 세계 상태의 기준 원장은 SQLite이다.
