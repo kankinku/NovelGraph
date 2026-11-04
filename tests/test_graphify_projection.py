@@ -302,6 +302,16 @@ class GraphifyProjectionTests(unittest.TestCase):
         self.assertTrue(all(not edge["traversed_forward"] for edge in out["hops"]))
         self.assertIn(event, [record["candidate_id"] for record in out["evidence"]])
 
+    def test_changed_stored_evidence_same_length_is_rejected(self):
+        self.stage(1, [("에블린이 등장했다.", "entity",
+                        self.entity("evelyn", "에블린", "person"))])
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            before = db.execute("SELECT evidence_text FROM candidates").fetchone()[0]
+            altered = "X" * len(before)
+            db.execute("UPDATE candidates SET evidence_text=?", (altered,))
+        self.assertIn("integrity hash mismatch", self.export(1, expected=2))
+        self.assertFalse(self.graph_path.exists())
+
     def test_export_does_not_change_sqlite_counts(self):
         self.stage(1, [("에블린이 등장한다.", "entity",
                         self.entity("evelyn", "에블린", "person"))])
