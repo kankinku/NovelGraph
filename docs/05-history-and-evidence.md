@@ -27,5 +27,5 @@
 ## 확인된 현 환경
 
 - 새로운 Moon의 `/shared`에 NovelGraph 소스가 확인되지 않음.
-- 연결된 GitHub 계정 `kankinku`의 저장소 목록에 `NovelGraph` 이름 없음.
+- **이전 조사 당시** 연결된 GitHub 계정에 `NovelGraph` 저장소가 없었으나, **2026-11-04 새 저장소 `kankinku/NovelGraph`를 생성하고 문서를 게시함.** 현재 Moon `/shared/NovelGraph`에 복제됨. 원본 소스 복구 여부와는 별개.
 - 기존 소스의 원격 push 이력은 검증되지 않음.
