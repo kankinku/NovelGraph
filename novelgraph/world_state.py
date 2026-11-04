@@ -280,7 +280,7 @@ def audit_reviews(db, work_id, episode):
     }
 
 
-def _replay(db, work_id, as_of_episode):
+def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
     state = {"work_id": work_id, "as_of_episode": as_of_episode,
              "cash": {}, "cash_movement": {}, "contracts": {},
              "ownership": {}, "total_assets": None, "event_count": 0}
@@ -288,7 +288,8 @@ def _replay(db, work_id, as_of_episode):
     rows = db.execute("""SELECT * FROM applied_events
         WHERE work_id=? AND source_episode<=? AND effective_episode<=?
         ORDER BY effective_episode, source_episode, evidence_start, candidate_id""",
-        (work_id, as_of_episode, as_of_episode)
+        (work_id, as_of_episode if known_at_episode is None else known_at_episode,
+         as_of_episode)
     ).fetchall()
     movement_started = set()
     for row in rows:
