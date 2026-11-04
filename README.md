@@ -27,9 +27,10 @@
 - [연속성 검증 규칙](docs/04-continuity-validation.md)
 - [과거 작업 이력 및 증거 수준](docs/05-history-and-evidence.md)
 - [복구 및 개발 계획](docs/06-recovery-roadmap.md)
+- [Karpathy·Ponytail 적용 개발 계획 (2026-11-04)](docs/07-implementation-plan-2026-11-04.md)
 
 ## 현재 상태
 
-현재 연결된 Moon에서 원본 프로젝트를 발견하지 못했고, 연결된 GitHub 계정 `kankinku`의 목록에도 `NovelGraph` 저장소가 확인되지 않았다. GitHub 게시 및 소스 복구는 **미완료**이다.
+이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **설계 문서만 존재**하고, 이전 Moon에 있었던 NovelGraph 원본 코드·과거 테스트 로그·커밋 복구는 **미완료**이다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
 
 관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 실제 적용 여부는 소스 복구 후 재검증 필요.
