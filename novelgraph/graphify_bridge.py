@@ -75,6 +75,21 @@ def _check_evidence(row: sqlite3.Row) -> None:
         _fail("stored evidence is missing")
     if row["evidence_end"] - row["evidence_start"] != len(row["evidence_text"]):
         _fail("stored evidence span is inconsistent")
+    # Candidate IDs were created from these exact fields at intake (stage 4).
+    # Recompute them before exporting to catch edits to stored claims/quotes
+    # that a same-length evidence span check would otherwise overlook.
+    try:
+        canonical = json.dumps(
+            [row["work_id"], row["episode"], row["source_sha256"],
+             row["kind"], json.loads(row["payload_json"]),
+             row["evidence_start"], row["evidence_end"], row["evidence_text"]],
+            sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (ValueError, TypeError) as exc:
+        raise ValueError("stored candidate contains invalid JSON") from exc
+    if hashlib.sha256(canonical).hexdigest() != row["candidate_id"]:
+        _fail("stored candidate integrity hash mismatch")
 
 
 def _node(g: nx.DiGraph, ident: str, label: str, kind: str, **attrs) -> None:
