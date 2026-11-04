@@ -389,6 +389,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     continuity.add_argument("--work-id", required=True)
     continuity.add_argument("--episode", required=True, type=int)
+    continuity_report = commands.add_parser(
+        "continuity-report", help="read-only Markdown review of approved continuity findings"
+    )
+    continuity_report.add_argument("--work-id", required=True)
+    continuity_report.add_argument("--episode", required=True, type=int)
     export_cmd = commands.add_parser(
         "graphify-export", help="materialize reviewed facts as a private Graphify snapshot"
     )
@@ -537,6 +542,24 @@ def main(argv: list[str] | None = None) -> int:
                     )
             finally:
                 db.close()
+        elif args.command == "continuity-report":
+            from .continuity import check_continuity
+            from .report import render_continuity_report
+            db_path = root / DB_NAME
+            if db_path.is_symlink() or not db_path.is_file():
+                _fatal("candidate database does not exist or is not a regular file")
+            if db_path.stat().st_mode & 0o077:
+                _fatal("candidate database must be private")
+            work = _check_work_id(args.work_id)
+            episode = _check_episode(args.episode)
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+                registered = db.execute(
+                    "SELECT 1 FROM episodes WHERE work_id=? AND episode=?",
+                    (work, episode),
+                ).fetchone()
+                if not registered:
+                    _fatal("episode is not registered")
+                value = render_continuity_report(check_continuity(db, work, episode))
         elif args.command == "check-continuity":
             from .continuity import check_continuity
             db_path = root / DB_NAME
@@ -577,7 +600,10 @@ def main(argv: list[str] | None = None) -> int:
                         value = approve_and_apply(db, args.candidate_id, digest, text)
             finally:
                 db.close()
-        print(json.dumps(value, ensure_ascii=False))
+        if args.command == "continuity-report":
+            print(value, end="")
+        else:
+            print(json.dumps(value, ensure_ascii=False))
         return 0
     except (OSError, ValueError, UnicodeError, sqlite3.Error) as exc:
         print(f"novelgraph: {exc}", file=sys.stderr)
