@@ -6,6 +6,7 @@ An applied event is an immutable fact; the visible state is always replayed.
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import hashlib
 import json
 import re
 import sqlite3
@@ -134,6 +135,17 @@ def _candidate(db, candidate_id, sha, text):
     start, end, quote = row["evidence_start"], row["evidence_end"], row["evidence_text"]
     if not (0 <= start < end <= len(text)) or text[start:end] != quote:
         _fail("candidate evidence is no longer valid against source")
+    try:
+        canonical = json.dumps(
+            [row["work_id"], row["episode"], row["source_sha256"],
+             row["kind"], json.loads(row["payload_json"]), start, end, quote],
+            sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise ValueError("candidate payload is invalid") from exc
+    if hashlib.sha256(canonical).hexdigest() != row["candidate_id"]:
+        _fail("stored candidate integrity hash mismatch")
     return row
 
 
@@ -163,6 +175,99 @@ def review_candidate(db, candidate_id, sha, text, decision, reviewer, reason):
             "applied": False, "reviewer_label_is_not_authentication": True}
 
 
+def assess_candidate(db, candidate_id, sha, text, assessment, model_label, reason):
+    """Record a model opinion without changing candidate approval or world state."""
+    if assessment not in ("supports", "needs_review", "unsupported"):
+        _fail("unsupported model assessment")
+    model_label = _id(model_label, "model_label")
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+        _fail("model assessment reason must be nonempty and at most 1000 characters")
+    db.execute("PRAGMA foreign_keys=ON")
+    with db:
+        row = _candidate(db, candidate_id, sha, text)
+        if row["status"] != "proposed":
+            _fail("only proposed candidates can receive model assessments")
+        db.execute("""CREATE TABLE IF NOT EXISTS model_assessments (
+            assessment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_id TEXT NOT NULL REFERENCES candidates(candidate_id),
+            assessment TEXT NOT NULL CHECK(assessment IN
+                ('supports','needs_review','unsupported')),
+            model_label TEXT NOT NULL, reason TEXT NOT NULL,
+            assessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        db.execute(
+            "INSERT INTO model_assessments(candidate_id,assessment,model_label,reason) "
+            "VALUES(?,?,?,?)",
+            (candidate_id, assessment, model_label, reason.strip()),
+        )
+    return {
+        "candidate_id": candidate_id, "assessment": assessment,
+        "official_status_changed": False, "authenticated_human_approval": False,
+        "model_label_is_not_authentication": True,
+    }
+
+
+def _assert_approved_review(db, candidate_id):
+    """Check the stored approval trail, not the untrusted reviewer label."""
+    row = db.execute(
+        "SELECT status FROM candidates WHERE candidate_id=?", (candidate_id,)
+    ).fetchone()
+    if row is None or row[0] != "approved":
+        _fail("official state requires an approved candidate")
+    try:
+        reviews = db.execute(
+            "SELECT decision,reviewer,reason FROM review_log WHERE candidate_id=?",
+            (candidate_id,),
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        raise ValueError("candidate has no approved review log") from exc
+    if (len(reviews) != 1 or reviews[0][0] != "approved"
+            or not reviews[0][1].strip() or not reviews[0][2].strip()):
+        _fail("candidate has no valid approved review log")
+
+
+def audit_reviews(db, work_id, episode):
+    """Read-only approval trail summary; reviewer strings are not identity proof."""
+    _id(work_id, "work_id")
+    if type(episode) is not int or episode < 1:
+        _fail("episode must be a positive integer")
+    rows = db.execute(
+        "SELECT candidate_id,status FROM candidates WHERE work_id=? AND episode<=?",
+        (work_id, episode),
+    ).fetchall()
+    counts = {"proposed": 0, "approved": 0, "rejected": 0}
+    missing = []
+    for cid, status in rows:
+        counts[status] += 1
+        if status == "approved":
+            try:
+                _assert_approved_review(db, cid)
+            except ValueError:
+                missing.append(cid)
+    exists = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_assessments'"
+    ).fetchone()
+    model_count = 0
+    if exists:
+        model_count = db.execute(
+            """SELECT COUNT(*) FROM model_assessments ma
+               JOIN candidates c ON c.candidate_id=ma.candidate_id
+               WHERE c.work_id=? AND c.episode<=?""",
+            (work_id, episode),
+        ).fetchone()[0]
+    return {
+        "work_id": work_id, "as_of_episode": episode,
+        "model_assessments": model_count,
+        "official_proposed": counts["proposed"],
+        "official_approved": counts["approved"],
+        "official_rejected": counts["rejected"],
+        "approved_with_review_log": counts["approved"] - len(missing),
+        "approved_missing_review_log": sorted(missing),
+        "human_identity_authenticated": False,
+        "source_quotes_included": False, "read_only": True,
+    }
+
+
 def _replay(db, work_id, as_of_episode):
     state = {"work_id": work_id, "as_of_episode": as_of_episode,
              "cash": {}, "cash_movement": {}, "contracts": {},
@@ -175,6 +280,7 @@ def _replay(db, work_id, as_of_episode):
     ).fetchall()
     movement_started = set()
     for row in rows:
+        _assert_approved_review(db, row["candidate_id"])
         event = json.loads(row["payload_json"])
         kind = row["event_type"]
         actor = event["actor_id"]
@@ -241,6 +347,7 @@ def approve_and_apply(db, candidate_id, sha, text):
         if row["status"] != "approved":
             _fail("candidate must have an explicit approval before applying")
         _init_tables(db)
+        _assert_approved_review(db, candidate_id)
         existing = db.execute(
             "SELECT 1 FROM applied_events WHERE candidate_id=?", (candidate_id,)
         ).fetchone()
