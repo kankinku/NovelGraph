@@ -28,6 +28,7 @@
 - [과거 작업 이력 및 증거 수준](docs/05-history-and-evidence.md)
 - [복구 및 개발 계획](docs/06-recovery-roadmap.md)
 - [Karpathy·Ponytail 적용 개발 계획 (2026-11-04)](docs/07-implementation-plan-2026-11-04.md)
+- [기존 소스 복구 조사 및 차단 요인 (2026-11-04)](docs/08-source-recovery-audit-2026-11-04.md)
 
 ## 현재 상태
 
