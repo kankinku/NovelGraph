@@ -72,13 +72,15 @@ class ContinuityTests(unittest.TestCase):
 
     def fact(self, episode, story, kind, subject, field, value,
              *, effective_episode=None, certainty="confirmed", currency=None,
-             approved=True):
+             context_id=None, approved=True):
         payload = {"fact_type": kind, "subject_id": subject,
                    "field": field, "value": value}
         if effective_episode is not None:
             payload["effective_episode"] = effective_episode
         if certainty != "confirmed":
             payload["certainty"] = certainty
+        if context_id is not None:
+            payload["context_id"] = context_id
         if currency is not None:
             payload["currency"] = currency
         return self.stage(episode, story, payload, approved=approved)
@@ -166,6 +168,24 @@ class ContinuityTests(unittest.TestCase):
         self.assertEqual(result["counts"]["NEEDS_REVIEW"], 1)
         self.assertEqual(result["counts"]["CONFIRMED_CONFLICT"], 0)
 
+    def test_same_episode_different_locations_without_scene_context_are_review_only(self):
+        self.fact(1, "에블린이 창고에 있었다.\n", "location",
+                  "person:evelyn", "location_id", "warehouse")
+        self.fact(2, "그때 에블린은 본사에 있었다.\n", "location",
+                  "person:evelyn", "location_id", "hq", effective_episode=1)
+        out = self.check(2)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
+        self.assertEqual(out["counts"]["NEEDS_REVIEW"], 1)
+
+    def test_explicit_same_scene_location_contradiction_is_confirmed(self):
+        self.fact(1, "에블린이 창고에 있었다.\n", "location",
+                  "person:evelyn", "location_id", "warehouse", context_id="scene:17")
+        self.fact(2, "그 장면에서 에블린은 본사에 있었다.\n", "location",
+                  "person:evelyn", "location_id", "hq",
+                  effective_episode=1, context_id="scene:17")
+        out = self.check(2)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 1)
+
     def test_explicit_movement_explains_location_change(self):
         self.fact(1, "본사에서 회의를 마쳤다.\n", "location",
                   "person:evelyn", "location_id", "hq")
@@ -243,6 +263,24 @@ class ContinuityTests(unittest.TestCase):
         self.assertEqual(finding["reason_code"], "CONTRACT_LEDGER_STATUS_MISMATCH")
         self.assertEqual(finding["ledger_status"], "signed")
         self.assertEqual(len(finding["evidence"]), 2)
+
+    def test_later_equity_transfer_does_not_rewrite_earlier_contract_status(self):
+        sign = self.stage(1, "계약을 체결했다.\n", {
+            "event_type": "contract_signed", "actor_id": "evelyn",
+            "contract_id": "aurora-15", "company_id": "aurora",
+            "equity_pct": "15"
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[sign]),
+                 "--candidate-id", sign)
+        transfer = self.stage(3, "지분 이전이 완료됐다.\n", {
+            "event_type": "equity_transfer", "actor_id": "evelyn",
+            "contract_id": "aurora-15"
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[transfer]),
+                 "--candidate-id", transfer)
+        self.fact(4, "당시 2화의 계약은 체결된 상태였다.\n", "contract",
+                  "aurora-15", "current_status", "signed", effective_episode=2)
+        self.assertEqual(self.check(4)["counts"]["CONFIRMED_CONFLICT"], 0)
 
     def test_as_of_never_uses_future_claims(self):
         self.fact(1, "본사는 시애틀이었다.\n", "location",
