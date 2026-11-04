@@ -38,6 +38,8 @@
 - [[8/9] 실제 원고 파일럿 평가 기준 및 CLI 준비 (2026-11-04)](docs/15-pilot-evaluation-step8-2026-11-04.md)
 - [[9/9] 전체 43화 처리 준비 및 체크리스트](docs/16-full-manuscript-step9-plan-2026-11-04.md)
 - [[8/9] 비공개 실제 1~5화 파일럿 실측 보고](docs/17-real-private-corpus-pilot-2026-11-04.md)
+- [[실사용 전환 01/12] 기준선·안전 감사](docs/18-production-baseline-2026-11-05.md)
+- [실사용 전환 Superpowers 실행 계획](docs/superpowers/plans/2026-11-05-novelgraph-production-plan.md)
 
 ## 현재 상태
 
