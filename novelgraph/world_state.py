@@ -11,7 +11,7 @@ import re
 import sqlite3
 
 IDENT = re.compile(r"^[A-Za-z0-9_.:-]{1,100}$")
-MONEY = re.compile(r"^(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$")
+MONEY = re.compile(r"^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$")
 CURRENCY = re.compile(r"^[A-Z]{3}$")
 EVENT_TYPES = {
     "cash_opening", "contract_signed", "cash_payment", "cash_receipt", "equity_transfer"
