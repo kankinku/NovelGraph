@@ -227,6 +227,22 @@ def list_candidates(root: Path, work: str, episode: int) -> dict:
         db.close()
 
 
+def _graph_output_path(raw: str, root: Path, *, allow_existing: bool = False) -> Path:
+    output = Path(raw).absolute()
+    if output.name != "graph.json" or output.is_symlink():
+        _fatal("Graphify output must be a regular file named graph.json")
+    parent = output.parent.resolve(strict=True)
+    if not parent.is_relative_to(root) or parent.stat().st_mode & 0o077:
+        _fatal("Graphify output parent must be under the private data root")
+    resolved = parent / output.name
+    if resolved.exists():
+        if not resolved.is_file() or resolved.stat().st_mode & 0o077:
+            _fatal("existing graph output must be a private regular file")
+        if not allow_existing:
+            _fatal("graph.json already exists; use --overwrite to regenerate")
+    return resolved
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m novelgraph")
     parser.add_argument("--data-root", default=str(DEFAULT_ROOT))
@@ -263,6 +279,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     continuity.add_argument("--work-id", required=True)
     continuity.add_argument("--episode", required=True, type=int)
+    export_cmd = commands.add_parser(
+        "graphify-export", help="materialize reviewed facts as a private Graphify snapshot"
+    )
+    export_cmd.add_argument("--work-id", required=True)
+    export_cmd.add_argument("--episode", required=True, type=int)
+    export_cmd.add_argument("--output", required=True)
+    export_cmd.add_argument("--overwrite", action="store_true")
+
+    trace_cmd = commands.add_parser(
+        "graphify-trace", help="trace a verified graph path back to episode evidence"
+    )
+    trace_cmd.add_argument("--work-id", required=True)
+    trace_cmd.add_argument("--episode", required=True, type=int)
+    trace_cmd.add_argument("--graph", required=True)
+    trace_cmd.add_argument("--from-node", required=True)
+    trace_cmd.add_argument("--to-node", required=True)
+
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -280,6 +313,32 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "list-candidates":
             value = list_candidates(root, _check_work_id(args.work_id),
                                     _check_episode(args.episode))
+        elif args.command in ("graphify-export", "graphify-trace"):
+            from .graphify_bridge import export_graph, trace_graph
+            db_path = root / DB_NAME
+            if not db_path.is_file():
+                _fatal("candidate database does not exist")
+            db = _connect(db_path)
+            try:
+                work = _check_work_id(args.work_id)
+                episode = _check_episode(args.episode)
+                if args.command == "graphify-export":
+                    path = _graph_output_path(
+                        args.output, root, allow_existing=args.overwrite
+                    )
+                    value = export_graph(db, work, episode, path)
+                    os.chmod(path, 0o600)
+                else:
+                    graph = _graph_output_path(
+                        args.graph, root, allow_existing=True
+                    )
+                    if not graph.is_file():
+                        _fatal("graph.json does not exist")
+                    value = trace_graph(
+                        db, work, episode, graph, args.from_node, args.to_node
+                    )
+            finally:
+                db.close()
         elif args.command == "check-continuity":
             from .continuity import check_continuity
             db_path = root / DB_NAME
