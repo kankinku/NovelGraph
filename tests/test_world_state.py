@@ -99,7 +99,7 @@ class WorldStateTests(unittest.TestCase):
         return cid
 
     def test_list_candidates_exposes_ids_not_private_excerpts(self):
-        cid = self.stage(1, "계약서에 서명했다.\\n", self.sign())
+        cid = self.stage(1, "계약서에 서명했다.\n", self.sign())
         listing = self.cli("list-candidates", "--work-id", "fixture", "--episode", "1")
         self.assertEqual(len(listing["candidates"]), 1)
         self.assertEqual(listing["candidates"][0]["candidate_id"], cid)
