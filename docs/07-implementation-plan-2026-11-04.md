@@ -1,6 +1,6 @@
 # NovelGraph 구현 계획 — 2026-11-04
 
-> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / [2/9] 기준 환경 구성 완료 / [3/9] Graphify 격리 설치·호환성 검증 완료 / [4/9] 후보 격리 완료 / [5/9] 승인 사건 및 동적 상태 엔진 구현·GitHub/Moon 가상 테스트 통과 / [6/9] 미착수**. [환경 기준](09-environment-baseline-2026-11-04.md), [Graphify 실증](10-graphify-feasibility-2026-11-04.md), [후보 수집 MVP](11-candidate-intake-mvp-2026-11-04.md), [동적 세계 상태 엔진](12-world-state-step5-2026-11-04.md), [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
+> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / [2/9] 기준 환경 구성 완료 / [3/9] Graphify 격리 설치·호환성 검증 완료 / [4/9] 후보 격리 완료 / [5/9] 동적 상태 엔진 완료 / [6/9] 연속성 검출기 구현·GitHub 41/41 통과, Moon 검증 대기**. [환경 기준](09-environment-baseline-2026-11-04.md), [Graphify 실증](10-graphify-feasibility-2026-11-04.md), [후보 수집 MVP](11-candidate-intake-mvp-2026-11-04.md), [동적 세계 상태 엔진](12-world-state-step5-2026-11-04.md), [연속성 검출기](13-continuity-step6-2026-11-04.md), [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
 > 근거: 저장소의 01~06 문서, 2026-11-04 Moon 실환경 점검, Graphify 공개 문서. **구형 NovelGraph 소스·과거 테스트 로그는 미검증**이다.
 
 ## 0. 목표와 비목표
@@ -119,7 +119,7 @@ NovelGraph CLI (Python): 입력 검증, 출처 일치, 저장, 상태 재생, �
 
 **보류:** 신규 독립 MCP, 웹 대시보드, Neo4j/벡터 DB, Graphify 대규모 포크, 장기 실행 자동 에이전트, 범용 도메인 프레임워크, 자동 집필. 요청/실증으로 필요해질 때만 재검토한다.
 
-**다음 수행 작업:** [6/9] 시간·행동·위치·수치·계약 설정 충돌 검출. 기존 원본 복구는 별도 병행 과제로 유지한다.
+**다음 수행 작업:** [6/9] Moon 환경 동기화·재검증 및 병합 확인. 이후 [7/9] 승인 사실·사건·근거의 Graphify 파생 그래프 연동. 기존 원본 복구는 별도 병행 과제로 유지한다.
 
 ## 출처와 한계
 
