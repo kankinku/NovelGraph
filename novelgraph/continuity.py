@@ -96,13 +96,16 @@ def validate_fact(row: sqlite3.Row) -> dict:
     certainty = item.get("certainty", "confirmed")
     if certainty not in ("confirmed", "uncertain"):
         _reject("certainty must be confirmed or uncertain")
+    context_id = item.get("context_id")
+    if context_id is not None:
+        _id(context_id, "context_id")
     expected = {
         "fact_type", "subject_id", "field", "effective_episode",
-        "currency", "certainty"
+        "currency", "certainty", "context_id"
     }
     normalized = {
         "fact_type": kind, "subject_id": subject, "field": field,
-        "currency": currency, "certainty": certainty,
+        "currency": currency, "certainty": certainty, "context_id": context_id,
         "effective_episode": effective, "source_episode": row["episode"],
         "candidate_id": row["candidate_id"],
         "evidence_start": row["evidence_start"], "evidence_end": row["evidence_end"],
@@ -173,9 +176,10 @@ def _contract_evidence(db: sqlite3.Connection, work: str, contract_id: str,
            JOIN candidates c ON c.candidate_id=ae.candidate_id
            JOIN episodes e ON e.work_id=c.work_id AND e.episode=c.episode
            WHERE ae.work_id=? AND ae.source_episode<=?
+             AND ae.effective_episode<=?
              AND ae.event_type IN ('contract_signed','equity_transfer')
            ORDER BY ae.source_episode DESC,ae.evidence_start DESC""",
-        (work, episode),
+        (work, episode, episode),
     ).fetchall()
     for row in rows:
         payload = json.loads(row["payload_json"])
@@ -242,7 +246,17 @@ def check_continuity(db: sqlite3.Connection, work: str, as_of_episode: int) -> d
             if "uncertain" in (prior["certainty"], current["certainty"]):
                 category, reason = "INSUFFICIENT_EVIDENCE", "UNCERTAIN_ASSERTION"
                 evidence = [prior, current]
-            elif prior["effective_episode"] == current["effective_episode"]:
+            elif (
+                prior["effective_episode"] == current["effective_episode"]
+                and (
+                    # A time fact's subject_id must identify one specific event.
+                    field in {"date", "weekday"}
+                    or (
+                        prior["context_id"] is not None
+                        and prior["context_id"] == current["context_id"]
+                    )
+                )
+            ):
                 category, reason = "CONFIRMED_CONFLICT", "SAME_MOMENT_CONTRADICTION"
                 evidence = [prior, current]
             else:
@@ -297,7 +311,9 @@ def check_continuity(db: sqlite3.Connection, work: str, as_of_episode: int) -> d
         for fact in assertions:
             if fact["fact_type"] != "contract" or fact["certainty"] != "confirmed":
                 continue
-            known_state = _replay(db, work, fact["source_episode"])
+            # Compare the historical moment described by the assertion, not
+            # a later transfer that happened after that moment.
+            known_state = _replay(db, work, fact["effective_episode"])
             contract = known_state["contracts"].get(fact["subject_id"])
             if contract is None or contract["status"] == fact["value"]:
                 continue
