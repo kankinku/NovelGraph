@@ -24,7 +24,10 @@ ALL_FIELDS = set().union(*FACT_FIELDS.values())
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday",
             "friday", "saturday", "sunday")
 ACTION_STATES = {"planned", "started", "completed", "reopened", "cancelled"}
-CONTRACT_STATES = {"pending", "signed", "transferred", "cancelled", "expired"}
+CONTRACT_STATES = {
+    "pending", "proposed", "refused", "signed", "transferred",
+    "cancelled", "expired",
+}
 REASONS = {"amended", "rescheduled", "moved", "corrected", "reopened",
            "repeated", "refinanced", "revalued"}
 STATUSES = ("CONFIRMED_CONFLICT", "NEEDS_REVIEW",
@@ -177,7 +180,10 @@ def _contract_evidence(db: sqlite3.Connection, work: str, contract_id: str,
            JOIN episodes e ON e.work_id=c.work_id AND e.episode=c.episode
            WHERE ae.work_id=? AND ae.source_episode<=?
              AND ae.effective_episode<=?
-             AND ae.event_type IN ('contract_signed','equity_transfer')
+             AND ae.event_type IN (
+                 'contract_proposed','contract_refused',
+                 'contract_signed','equity_transfer'
+             )
            ORDER BY ae.source_episode DESC,ae.evidence_start DESC""",
         (work, episode, episode),
     ).fetchall()

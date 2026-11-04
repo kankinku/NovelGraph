@@ -15,7 +15,8 @@ IDENT = re.compile(r"^[A-Za-z0-9_.:-]{1,100}$")
 MONEY = re.compile(r"^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$")
 CURRENCY = re.compile(r"^[A-Z]{3}$")
 EVENT_TYPES = {
-    "cash_opening", "contract_signed", "cash_payment", "cash_receipt", "equity_transfer"
+    "cash_opening", "contract_proposed", "contract_refused", "contract_signed",
+    "cash_payment", "cash_receipt", "equity_transfer"
 }
 
 
@@ -66,6 +67,10 @@ def _payload(row):
                          "transaction_id", "contract_id", "effective_episode"},
         "cash_receipt": {"event_type", "actor_id", "currency", "amount",
                          "transaction_id", "contract_id", "effective_episode"},
+        "contract_proposed": {"event_type", "actor_id", "contract_id",
+                              "company_id", "effective_episode"},
+        "contract_refused": {"event_type", "actor_id", "contract_id",
+                             "effective_episode"},
         "contract_signed": {"event_type", "actor_id", "contract_id", "company_id",
                             "equity_pct", "effective_episode"},
         "equity_transfer": {"event_type", "actor_id", "contract_id", "effective_episode"},
@@ -86,6 +91,13 @@ def _payload(row):
         key = f"cash:{transaction}"
     elif event_type == "cash_opening":
         key = f"balance:{actor}:{value['currency']}"
+    elif event_type == "contract_proposed":
+        contract = _id(value.get("contract_id"), "contract_id")
+        _id(value.get("company_id"), "company_id")
+        key = f"proposal:{contract}"
+    elif event_type == "contract_refused":
+        contract = _id(value.get("contract_id"), "contract_id")
+        key = f"refusal:{contract}"
     elif event_type == "contract_signed":
         contract = _id(value.get("contract_id"), "contract_id")
         _id(value.get("company_id"), "company_id")
@@ -284,11 +296,32 @@ def _replay(db, work_id, as_of_episode):
         event = json.loads(row["payload_json"])
         kind = row["event_type"]
         actor = event["actor_id"]
-        if kind == "contract_signed":
+        if kind == "contract_proposed":
             contract = event["contract_id"]
             if contract in state["contracts"]:
-                _fail("contract has already been signed")
+                _fail("contract has already been proposed or signed")
             state["contracts"][contract] = {
+                "actor_id": actor, "company_id": event["company_id"],
+                "status": "proposed"
+            }
+        elif kind == "contract_refused":
+            contract = state["contracts"].get(event["contract_id"])
+            if not contract or contract["actor_id"] != actor or contract["status"] != "proposed":
+                _fail("contract refusal requires matching proposal")
+            contract["status"] = "refused"
+        elif kind == "contract_signed":
+            contract_id = event["contract_id"]
+            existing_contract = state["contracts"].get(contract_id)
+            if existing_contract:
+                if existing_contract["status"] == "refused":
+                    _fail("refused contract cannot be signed")
+                if existing_contract["status"] != "proposed":
+                    _fail("contract has already been signed")
+                if existing_contract["actor_id"] != actor:
+                    _fail("proposal actor must match contract signer")
+                if existing_contract["company_id"] != event["company_id"]:
+                    _fail("proposal company must match signed contract company")
+            state["contracts"][contract_id] = {
                 "actor_id": actor, "company_id": event["company_id"],
                 "equity_pct": event["equity_pct"], "status": "signed"
             }
@@ -319,8 +352,9 @@ def _replay(db, work_id, as_of_episode):
             else:
                 if event.get("contract_id"):
                     contract = state["contracts"].get(event["contract_id"])
-                    if not contract or contract["actor_id"] != actor:
-                        _fail("cash transaction refers to an unsigned or foreign contract")
+                    if (not contract or contract["actor_id"] != actor
+                            or contract["status"] not in ("signed", "transferred")):
+                        _fail("cash transaction requires signed contract with matching actor")
                 movement_started.add((actor, currency))
                 change = -amount if kind == "cash_payment" else amount
                 movements[currency] = _number(
