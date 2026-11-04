@@ -1,6 +1,6 @@
 # [5/9] 승인된 사건의 동적 세계 상태 엔진
 
-> 상태: **GitHub 개발 브랜치 구현 및 CI 검증 진행 중**. 기준 저장소: `kankinku/NovelGraph`, 브랜치 `feat/world-state-step5`. 기존 Moon MCP 연결 장애로 Moon 실행·동기화는 재확인 필요. 공개 GitHub에는 가상 테스트 데이터와 코드만 보관한다.
+> 상태: **GitHub·Moon 실행 검증 완료 (23/23)**. 기준 저장소: `kankinku/NovelGraph`, 브랜치 `feat/world-state-step5`. Moon 연결 복구 후 별도 작업 트리 `/shared/NovelGraph-step5`에서 전 테스트를 재실행하여 23개 모두 통과. `main` 병합·기준 경로 동기화는 후속 Git 처리. 공개 GitHub에는 가상 테스트 데이터와 코드만 보관한다.
 
 ## 1. 처리 흐름
 
@@ -87,7 +87,7 @@ $PY -m novelgraph --data-root "$PRIVATE" world-state --work-id demo --episode 1
 가상 데이터로 다음을 검증한다: 명시 승인 필요·승인 이력·중복 승인 금지, 계약 서명·송금·지분 이전 분리, 100000→75000 정확 계산, 동일 송금 중복 방지, 허위 금액 거부, 잔액 초과 지급 롤백, 선행 계약 없는 지분 이전 거부, 초기 현금 미상, 나중에 밝혀진 과거 사건, 원고 수정 후 적용 거부, 후보 ID 조회 시 원문 비노출.
 
 - 자동화: `.github/workflows/novelgraph-tests.yml`에 Python 3.12 / `graphifyy==0.9.102` 고정 및 전체 `unittest` 실행.
-- **검증 기준:** GitHub Actions 통과와 Moon 환경 동기화·재실행을 별도로 기록한다. 실행하지 않은 테스트는 통과로 표기하지 않는다.
+- **검증 결과:** GitHub Actions(2026-11-04, Python 3.12): **23/23 통과**. Moon `/shared/NovelGraph-step5` + 프로젝트 가상환경 Python 3.12.3: **23/23 통과 (29.098초)**. 과거 `690/690` 기록과 혼동하지 않는다. 실행하지 않은 다른 시나리오는 통과로 표기하지 않는다.
 - 기존 `[1/9]` 원본 복구는 여전히 별도 미해결 과제다.
 
 **후속 [6/9]:** 시간·위치·행동·금액·계약의 연속성 위반을 근거 링크와 함께 찾아내는 충돌 검출기.
