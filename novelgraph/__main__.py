@@ -206,6 +206,27 @@ def status(root: Path, work: str, episode: int) -> dict:
         db.close()
 
 
+def list_candidates(root: Path, work: str, episode: int) -> dict:
+    db_path = root / DB_NAME
+    if not db_path.is_file():
+        _fatal("candidate database does not exist")
+    db = _connect(db_path)
+    try:
+        rows = db.execute(
+            "SELECT candidate_id, kind, status, evidence_start, evidence_end "
+            "FROM candidates WHERE work_id=? AND episode=? ORDER BY evidence_start, candidate_id",
+            (work, episode),
+        ).fetchall()
+        return {"work_id": work, "episode": episode,
+                "candidates": [
+                    {"candidate_id": row[0], "kind": row[1], "status": row[2],
+                     "evidence_start": row[3], "evidence_end": row[4]}
+                    for row in rows
+                ]}
+    finally:
+        db.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m novelgraph")
     parser.add_argument("--data-root", default=str(DEFAULT_ROOT))
@@ -218,6 +239,25 @@ def main(argv: list[str] | None = None) -> int:
     get_status = commands.add_parser("status", help="view candidate counts without leaking excerpts")
     get_status.add_argument("--work-id", required=True)
     get_status.add_argument("--episode", required=True, type=int)
+
+    listing = commands.add_parser("list-candidates", help="list candidate IDs without source text")
+    listing.add_argument("--work-id", required=True)
+    listing.add_argument("--episode", required=True, type=int)
+
+    reviewer = commands.add_parser("review-candidate", help="explicitly review one candidate")
+    reviewer.add_argument("--source", required=True)
+    reviewer.add_argument("--candidate-id", required=True)
+    reviewer.add_argument("--decision", choices=("approve", "reject"), required=True)
+    reviewer.add_argument("--reviewer", required=True)
+    reviewer.add_argument("--reason", required=True)
+
+    apply_cmd = commands.add_parser("apply-approved", help="apply approved state-change event")
+    apply_cmd.add_argument("--source", required=True)
+    apply_cmd.add_argument("--candidate-id", required=True)
+
+    state_cmd = commands.add_parser("world-state", help="replay events as known at an episode")
+    state_cmd.add_argument("--work-id", required=True)
+    state_cmd.add_argument("--episode", required=True, type=int)
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -229,9 +269,34 @@ def main(argv: list[str] | None = None) -> int:
             value = import_candidates(
                 root, _private_file(args.source, root), _private_file(args.input, root)
             )
-        else:
+        elif args.command == "status":
             value = status(root, _check_work_id(args.work_id),
                            _check_episode(args.episode))
+        elif args.command == "list-candidates":
+            value = list_candidates(root, _check_work_id(args.work_id),
+                                    _check_episode(args.episode))
+        else:
+            from .world_state import approve_and_apply, review_candidate, world_state
+            db_path = root / DB_NAME
+            if not db_path.is_file():
+                _fatal("candidate database does not exist")
+            db = _connect(db_path)
+            try:
+                if args.command == "world-state":
+                    value = world_state(
+                        db, _check_work_id(args.work_id), _check_episode(args.episode)
+                    )
+                else:
+                    text, digest, _ = _source(_private_file(args.source, root))
+                    if args.command == "review-candidate":
+                        value = review_candidate(
+                            db, args.candidate_id, digest, text,
+                            args.decision, args.reviewer, args.reason,
+                        )
+                    else:
+                        value = approve_and_apply(db, args.candidate_id, digest, text)
+            finally:
+                db.close()
         print(json.dumps(value, ensure_ascii=False))
         return 0
     except (OSError, ValueError, UnicodeError, sqlite3.Error) as exc:
