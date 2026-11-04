@@ -62,3 +62,11 @@ git check-ignore -v .venv/ data/ manuscript.sqlite .env graphify-data/  # 예측
 - [ ] 기존 NovelGraph 원본 확보 — 이전 Moon 접근 필요
 
 **최종 Git 동기화·ignore 검증 및 작업 트리 상태는 이 문서 게시 뒤 재검사해 보고한다.**
+
+## 6. [3/9] 후속 업데이트 (2026-11-04)
+
+- 시스템에 `pip`와 `ensurepip`가 없다는 초기 측정값은 그대로 유효하다. 그러나 공식 PyPA `pip.pyz`를 비공개 실험 경로에 보관하고 프로젝트 `.venv`에 `graphifyy==0.9.102`를 성공적으로 설치했다.
+- Graphify CLI 및 Python 모듈 import 검증 완료.
+- 가상 소설의 관계 그래프 왕복·조회와 원시 텍스트 비의미 추출 동작 확인: `2 tests, OK`.
+- 상세: [Graphify 실증 보고](10-graphify-feasibility-2026-11-04.md).
+- 기존 NovelGraph 원본 복구 및 실제 소설 분석 정확도는 여전히 미검증이다.
