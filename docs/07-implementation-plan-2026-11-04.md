@@ -1,6 +1,6 @@
 # NovelGraph 구현 계획 — 2026-11-04
 
-> 상태: **계획 수립 / 코드 구현 착수 전**. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
+> 상태: **계획 수립 / [1/9] 현 환경 조사 완료·원본 복구 미완료 / 코드 구현 착수 전**. [복구 조사 결과](08-source-recovery-audit-2026-11-04.md)를 참조한다. Karpathy Guidelines 및 Ponytail Full(불필요한 설계에 대해서는 Ultra 관점)을 적용했다.
 > 근거: 저장소의 01~06 문서, 2026-11-04 Moon 실환경 점검, Graphify 공개 문서. **구형 NovelGraph 소스·과거 테스트 로그는 미검증**이다.
 
 ## 0. 목표와 비목표
