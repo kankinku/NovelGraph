@@ -28,15 +28,15 @@
 | `relation` | `source_id`, `target_id`, `relation_type` | 소유·소속·관계가 근거로 확인될 때 |
 | `event` | `actor_id`, `event_type`, 선택적 `target_id` | 제안·지시·거절·조사·계약 미체결 등 서사적 사건 |
 | `continuity_fact` | `fact_type`, `subject_id`, `field`, `value` 등 | 날짜·요일·위치·동작·금액·계약 상태를 비교할 때 |
-| `state_change` | 아래 지원 event type별 정확한 필드 | **실제 발생했다고 원문으로 입증된** 현금·계약 서명·지분 이전 등 |
+| `state_change` | 아래 지원 event type별 정확한 필드 | 증거로 확인되고 **공식 승인된** 계약 제안·거절 상태, 실제 현금·서명·지분 이전 등 |
 
 - `entity_type`은 `person`, `organization`, `place`, `contract`, `asset`, `object`를 지원한다.
 - 인물·회사·거래·계약 등 식별자(`*_id`)는 **안정된 ASCII 영문·숫자·밑줄·하이픈 등 현행 검증기가 허용하는 형태**로 유지한다. 이름 자체는 한국어로 적는다.
 - `continuity_fact`의 비교 필드는 `time.date`, `time.weekday`, `location.location_id`, `action.action_state`, `amount.amount`, `contract.current_status`다. 금액은 `currency` 필수, 실제 불확실성이 있으면 `certainty: "uncertain"` 사용.
-- 현재 계약 상태 값은 `pending`, `signed`, `transferred`, `cancelled`, `expired`만 지원한다. **미서명 제안의 거절(`refused`)을 `pending` 또는 이미 서명된 계약의 `cancelled`로 임의 변환하지 않는다.** 사건 `event`로 `proposal_refused` 같은 의미를 표현하고 상태 판정은 보류한다.
-- `state_change`에서 지원하는 이벤트는 `cash_opening`, `cash_payment`, `cash_receipt`, `contract_signed`, `equity_transfer`다. `effective_episode`은 생략 가능하지만 지정하면 소스 회차 이하의 양의 정수여야 한다. 소급 서술이라고 해서 그 사실이 과거에 **알려져 있었던** 것처럼 자동 처리하지 않는다.
+- 계약 상태 값은 `pending`(기존 호환용), `proposed`, `refused`, `signed`, `transferred`, `cancelled`, `expired`다. **제안과 거절을 실제 계약 서명/해지로 바꾸지 않는다.** `contract_refused`는 이전의 같은 ID 제안이 승인·적용된 경우에만 허용한다. 독립 근거가 없으면 확정 상태 적용 대신 사건 `event` 또는 검토 대상으로 남긴다.
+- `state_change`에서 지원하는 이벤트는 `cash_opening`, `cash_payment`, `cash_receipt`, `contract_proposed`, `contract_refused`, `contract_signed`, `equity_transfer`다. 제안·거절 이벤트는 **계약 상태만** 바꾸며, 실제 현금·지분에는 영향이 없다. 모든 이벤트는 공식 승인 후에만 적용한다. `effective_episode`은 생략 가능하지만 지정하면 소스 회차 이하의 양의 정수여야 한다. 소급 서술이라고 해서 그 사실이 과거에 **알려져 있었던** 것처럼 자동 처리하지 않는다.
 - `cash_payment`/`cash_receipt`는 `actor_id`, 3글자 대문자 `currency`, 문자열 금액 `amount`, 유일한 `transaction_id`, 선택적 `contract_id`가 필요하다. 양도 대상 권리와 실제 지급 주체를 구분한다.
-- `contract_signed`는 `actor_id`, `contract_id`, `company_id`, 문자열 `equity_pct`가 필요하다. `equity_transfer`에는 `actor_id`와 `contract_id`가 필요하며, 실제 체결·양도 근거 없이는 생성하지 않는다.
+- `contract_proposed`는 `actor_id`, `contract_id`, `company_id`가 필요하며 계약 제안 사실만 기록한다. `contract_refused`는 `actor_id`, `contract_id`로 기존 제안의 거절을 기록한다. `contract_signed`는 `actor_id`, `contract_id`, `company_id`, 문자열 `equity_pct`가 필요하다. 앞선 제안이 있다면 행위자와 대상 회사가 일치해야 하고 거절 후 같은 계약 ID의 서명은 허용하지 않는다. `equity_transfer`에는 `actor_id`와 `contract_id`가 필요하며, 실제 체결·양도 근거 없이는 생성하지 않는다.
 
 **중요한 호환성 제약:** `event`에 임의로 `certainty`, `stage` 같은 확장 필드를 넣지 않는다. 이 값들은 현재 Graphify 승인 후보 스키마에 존재하지 않는다. 제안/이행 구별은 `event_type`과 별도의 검토 기록으로 표현한다.
 
@@ -44,8 +44,8 @@
 
 | 가상의 문장·상황 | 허용 후보 방향 | 금지할 오판 |
 | --- | --- | --- |
-| '지분을 사기로 제안했다' | `event`: `equity_purchase_proposed` | 이미 지분을 소유했다고 `state_change` 생성 |
-| '계약서에 서명하지 않겠다고 거절했다' | `event`: `proposal_refused` | `contract_signed`나 `pending`으로 고정 |
+| '지분을 사기로 제안했다' | 미확정일 때 `event`, 원문 근거와 공식 승인이 있을 때 `state_change:contract_proposed` | 실제 서명·지급·지분 소유로 취급 |
+| '계약서에 서명하지 않겠다고 거절했다' | 미확정일 때 `event`, 기존 제안과 동일성이 확인되고 공식 승인된 경우 `state_change:contract_refused` | 서명·기존 계약 해지·현금 지급으로 취급 |
 | '대금은 다음 달 송금할 예정이다' | `event`: `cash_payment_planned` | 현금 잔액 즉시 차감 |
 | '회사 계좌에서 3만 달러를 실제 송금했다' | 실제 지급 주체·거래 ID·근거가 확인될 때만 `state_change:cash_payment` | 수령인과 지급 주체 혼동 |
 | '과거 집행한 3만 달러를 다시 언급했다' | 이전 사건과 연결된 `continuity_fact` 등 | 재언급을 신규 지급으로 중복 차감 |
@@ -61,7 +61,7 @@
 
 다음 지침은 작가 자동 집필 프롬프트와 **완전히 별도**로 유지한다.
 
-> 제공된 소설 원고 한 회차를 처음부터 끝까지 읽고 인물·조직·사건·시간·위치·금액·계약·권리·상태 변화를 추출한다. 모든 정보는 해당 회차의 원문 구간과 연결한다. 제안·계획·지시·거절·기존 사건의 재언급·실제 이행·확정 사실·화자의 추측을 구분하라. 실제 서명·송금·이전이 입증되지 않았다면 세계 상태를 변경하는 `state_change`를 작성하지 마라. 같은 과거 금액이나 거래를 반복 언급한 경우 같은 사건에 연결하고 중복 변경을 금지하라. 법적 효력, 동명이인의 동일성, 미확정 자산 금액을 추측하지 마라. 기존 ID·원본 SHA를 제공받지 않았다면 결과를 공식 적용하지 말고 검토 대상으로 두라. 기존 NovelGraph `schema_version=1` 계약에 맞는 JSON만 출력하고, JSON 바깥의 모델 판단 메모는 별도 비공개 검토 기록으로 보관하라. 모든 인용의 `[start,end)`는 실제 입력 텍스트의 Unicode 문자 위치와 정확히 일치해야 한다. 내용에 불확실성이 있으면 '확정'이라고 꾸미지 마라.
+> 제공된 소설 원고 한 회차를 처음부터 끝까지 읽고 인물·조직·사건·시간·위치·금액·계약·권리·상태 변화를 추출한다. 모든 정보는 해당 회차의 원문 구간과 연결한다. 제안·계획·지시·거절·기존 사건의 재언급·실제 이행·확정 사실·화자의 추측을 구분하라. 실제 서명·송금·이전이 입증되지 않았다면 `contract_signed`·`cash_payment`·`equity_transfer`를 생성하지 마라. 제안·거절이 근거로 확인되면 각각 `contract_proposed`·`contract_refused`를 **계약 상태에만** 사용하며, 사람의 공식 검수 전에는 이를 적용하지 마라. 같은 과거 금액이나 거래를 반복 언급한 경우 같은 사건에 연결하고 중복 변경을 금지하라. 법적 효력, 동명이인의 동일성, 미확정 자산 금액을 추측하지 마라. 기존 ID·원본 SHA를 제공받지 않았다면 결과를 공식 적용하지 말고 검토 대상으로 두라. 기존 NovelGraph `schema_version=1` 계약에 맞는 JSON만 출력하고, JSON 바깥의 모델 판단 메모는 별도 비공개 검토 기록으로 보관하라. 모든 인용의 `[start,end)`는 실제 입력 텍스트의 Unicode 문자 위치와 정확히 일치해야 한다. 내용에 불확실성이 있으면 '확정'이라고 꾸미지 마라.
 
 ## 5. 저장 전 검증 명령
 
