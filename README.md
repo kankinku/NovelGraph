@@ -52,6 +52,7 @@
 - [[실사용 전환 08/12] 연속성 판정 및 뒤늦게 공개된 과거 사실 보정](docs/28-continuity-accuracy-phase8-2026-11-05.md)
 - [[실사용 전환 09/12] 작가용 읽기 전용 Markdown 검토 보고서](docs/29-writer-continuity-report-phase9-2026-11-05.md)
 - [[실사용 전환 10/12] Moon 처리·중단 후 재개 표준 절차](docs/30-moon-workflow-phase10-2026-11-05.md)
+- [[실사용 전환 11/12] 온라인 DB 백업·비파괴 복원·멱등성](docs/31-recovery-and-idempotency-phase11-2026-11-05.md)
 
 ## 현재 상태
 
