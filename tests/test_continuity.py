@@ -146,6 +146,94 @@ class ContinuityTests(unittest.TestCase):
         self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
         self.assertEqual(out["counts"]["NEEDS_REVIEW"], 0)
 
+    def test_uncertain_amendment_cannot_explain_confirmed_amount_jump(self):
+        self.fact(1, "가상 계약 대금은 15만 달러였다.\n", "amount",
+                  "contract:synthetic", "amount", "150000", currency="USD")
+        self.stage(2, "대금이 30만 달러로 수정됐을지도 모른다.\n", {
+            "fact_type": "change", "subject_id": "contract:synthetic",
+            "field": "amount", "from_value": "150000", "to_value": "300000",
+            "currency": "USD", "reason_code": "amended", "certainty": "uncertain",
+        })
+        self.fact(3, "가상 계약 대금은 30만 달러였다.\n", "amount",
+                  "contract:synthetic", "amount", "300000", currency="USD")
+        out = self.check(3)
+        self.assertEqual(out["counts"]["EXPLAINED_CHANGE"], 0)
+        self.assertTrue(any(
+            f["category"] == "NEEDS_REVIEW" and
+            f["reason_code"] == "UNEXPLAINED_STATE_CHANGE"
+            for f in out["findings"]
+        ))
+        self.assertTrue(any(
+            f["category"] == "INSUFFICIENT_EVIDENCE" and
+            f["reason_code"] == "UNMATCHED_CHANGE_EVENT"
+            for f in out["findings"]
+        ))
+
+    def test_uncertain_repeat_does_not_explain_duplicate_completed_action(self):
+        self.fact(1, "문을 잠갔다.\n", "action",
+                  "action:synthetic:lock", "action_state", "completed")
+        self.stage(2, "다시 잠근 것일지도 모른다.\n", {
+            "fact_type": "change", "subject_id": "action:synthetic:lock",
+            "field": "action_state", "from_value": "completed",
+            "to_value": "completed", "reason_code": "repeated",
+            "certainty": "uncertain",
+        })
+        self.fact(3, "문을 또 잠갔다.\n", "action",
+                  "action:synthetic:lock", "action_state", "completed")
+        out = self.check(3)
+        self.assertEqual(out["counts"]["EXPLAINED_CHANGE"], 0)
+        self.assertTrue(any(f["reason_code"] == "REPEATED_COMPLETED_ACTION"
+                            for f in out["findings"]))
+
+    def test_late_discovered_past_signing_is_known_when_later_claim_is_checked(self):
+        signed = self.stage(3, "3화에서 1화의 계약 서명 사실을 알게 됐다.\n", {
+            "event_type": "contract_signed", "actor_id": "investor",
+            "contract_id": "retro-contract", "company_id": "alpha",
+            "equity_pct": "12", "effective_episode": 1,
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[signed]),
+                 "--candidate-id", signed)
+        self.assertEqual(self.cli("world-state", "--work-id", "novel",
+                                  "--episode", "2")["event_count"], 0)
+        claim = self.fact(4, "4화의 인물은 1화 계약이 미서명이라고 주장한다.\n",
+                          "contract", "retro-contract", "current_status",
+                          "pending", effective_episode=1)
+        out = self.check(4)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 1)
+        finding = out["findings"][0]
+        self.assertEqual(finding["reason_code"], "CONTRACT_LEDGER_STATUS_MISMATCH")
+        self.assertEqual(finding["ledger_status"], "signed")
+        self.assertEqual({e["candidate_id"] for e in finding["evidence"]},
+                         {signed, claim})
+
+    def test_late_discovered_past_signing_does_not_retroactively_discredit_earlier_claim(self):
+        self.fact(2, "2화 시점에는 1화 계약이 미서명이라고 알려졌다.\n",
+                  "contract", "retro-contract", "current_status", "pending",
+                  effective_episode=1)
+        signed = self.stage(3, "3화에서 1화 서명 사실이 뒤늦게 공개됐다.\n", {
+            "event_type": "contract_signed", "actor_id": "investor",
+            "contract_id": "retro-contract", "company_id": "alpha",
+            "equity_pct": "12", "effective_episode": 1,
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[signed]),
+                 "--candidate-id", signed)
+        out = self.check(3)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
+        self.assertEqual(out["counts"]["NEEDS_REVIEW"], 0)
+
+    def test_confirmed_same_moment_amount_disagreement_is_conflict(self):
+        one = self.fact(1, "같은 거래의 최종 가격은 15만 달러였다.\n",
+                        "amount", "transaction:fixed", "amount", "150000",
+                        currency="USD", context_id="deal:one")
+        two = self.fact(2, "같은 거래의 최종 가격은 30만 달러였다.\n",
+                        "amount", "transaction:fixed", "amount", "300000",
+                        currency="USD", effective_episode=1,
+                        context_id="deal:one")
+        out = self.check(2)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 1)
+        self.assertEqual({e["candidate_id"] for e in out["findings"][0]["evidence"]},
+                         {one, two})
+
     def test_same_event_weekday_conflict_has_both_evidence_spans(self):
         a = self.fact(1, "회담은 월요일이었다.\n", "time",
                       "meeting:1", "weekday", "monday")
