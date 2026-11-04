@@ -120,11 +120,12 @@ def _ratio(numerator: int, denominator: int):
 def _scores(tp: int, fp: int, fn: int):
     precision = _ratio(tp, tp + fp)
     recall = _ratio(tp, tp + fn)
-    f1 = (
-        round(2 * precision * recall / (precision + recall), 4)
-        if precision is not None and recall is not None
-        and precision + recall > 0 else None
-    )
+    if precision is None or recall is None:
+        f1 = None
+    elif precision + recall == 0:
+        f1 = 0.0
+    else:
+        f1 = round(2 * precision * recall / (precision + recall), 4)
     return {
         "tp": tp, "fp": fp, "fn": fn,
         "precision": precision, "recall": recall, "f1": f1,
@@ -152,9 +153,15 @@ def evaluate_pilot(root: Path, manifest: dict, gold: dict, predicted: dict) -> d
     if not isinstance(gold_rows, list) or not isinstance(predicted_rows, list):
         _fail("gold and predictions findings must be lists")
     gold_keys = [_key(item, episodes, gold=True) for item in gold_rows]
+    if any(ref[0] > episode for key in gold_keys for ref in key[3]):
+        _fail("gold evidence refers to a future episode")
     if len(set(gold_keys)) != len(gold_keys):
         _fail("gold findings contain duplicate labels")
     predicted_keys = [_key(item, episodes, gold=False) for item in predicted_rows]
+    predicted_keys = [
+        key if key is not None and all(ref[0] <= episode for ref in key[3]) else None
+        for key in predicted_keys
+    ]
     valid_prediction_count = sum(key is not None for key in predicted_keys)
     gold_counts = Counter(gold_keys)
     pred_counts = Counter(key for key in predicted_keys if key is not None)
@@ -208,5 +215,5 @@ def evaluate_pilot(root: Path, manifest: dict, gold: dict, predicted: dict) -> d
         "false_positive": false_positive,
         "missed_gold": missed_gold,
         "source_text_included": False,
-        "gold_is_human_adjudicated": True,
+        "human_gold_adjudication_must_be_verified_separately": True,
     }
