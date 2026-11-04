@@ -136,6 +136,26 @@ class CandidateIntakeTests(unittest.TestCase):
         check = self.run_cli("status", "--work-id", "demo", "--episode", "1")
         self.assertEqual(json.loads(check.stdout)["source_sha256"], old_sha)
 
+    def test_private_root_requires_restricted_permissions(self):
+        self.root.chmod(0o755)
+        result = self.run_cli("source-info", "--source", str(self.source))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("private data root", result.stderr)
+        self.root.chmod(0o700)
+
+    def test_database_symlink_and_unsafe_permissions_rejected(self):
+        db = self.root / "novelgraph.sqlite"
+        db.symlink_to(self.source)
+        result = self.submit(self.document())
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("symlinks", result.stderr)
+        db.unlink()
+        db.write_bytes(b"not-a-db")
+        db.chmod(0o644)
+        result = self.submit(self.document())
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("private regular file", result.stderr)
+
     def test_private_root_rejects_symlink_escape(self):
         # Avoid writing outside the test directory: a link to an existing repository
         # source is enough to test resolved path escaping the private root.

@@ -29,6 +29,8 @@ def _data_root(raw: str) -> Path:
     root = Path(raw).resolve(strict=True)
     if not root.is_dir():
         _fatal("data root must be a directory")
+    if root.stat().st_mode & 0o077:
+        _fatal("private data root must deny access to group and others")
     code_root = Path(__file__).resolve().parents[1]
     if root.is_relative_to(code_root):
         _fatal("data root must be outside the public source tree")
@@ -115,6 +117,10 @@ def _valid_candidates(document: dict, text: str, digest: str) -> tuple[str, int,
 
 
 def _connect(path: Path) -> sqlite3.Connection:
+    if path.is_symlink():
+        _fatal("database symlinks are forbidden")
+    if path.exists() and (not path.is_file() or path.stat().st_mode & 0o077):
+        _fatal("database must be a private regular file")
     previous = os.umask(0o077)
     try:
         db = sqlite3.connect(path)
