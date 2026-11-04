@@ -128,7 +128,8 @@ def _add_approved(g: nx.DiGraph, row: sqlite3.Row) -> None:
     if kind == "entity":
         _strict_fields(data, {"entity_id", "entity_type", "name"})
         _id(data["entity_id"], "entity_id")
-        if data["entity_type"] not in ENTITY_TYPES:
+        if (not isinstance(data["entity_type"], str)
+                or data["entity_type"] not in ENTITY_TYPES):
             _fail("unsupported entity_type")
         name = _text(data["name"], "name")
         node_id = _reference_id(data["entity_id"])
@@ -263,12 +264,15 @@ def _verify(loaded: nx.Graph, expected: nx.DiGraph) -> None:
         _fail("graph snapshot nodes or directed edges do not match SQLite")
     for ident, attrs in expected.nodes(data=True):
         saved = loaded.nodes[ident]
-        if any(saved.get(k) != v for k, v in attrs.items()):
+        if (any(saved.get(k) != v for k, v in attrs.items())
+                or set(saved) - set(attrs) - {"norm_label", "community",
+                                               "community_name"}):
             _fail("graph node attributes differ from authoritative SQLite")
     for src, dst, attrs in expected.edges(data=True):
         saved = loaded.edges[src, dst]
-        if any(k not in ("_src", "_tgt") and saved.get(k) != v
-               for k, v in attrs.items()):
+        if (any(k not in ("_src", "_tgt") and saved.get(k) != v
+                for k, v in attrs.items())
+                or set(saved) - set(attrs) - {"confidence_score"}):
             _fail("graph edge attributes differ from authoritative SQLite")
 
 
