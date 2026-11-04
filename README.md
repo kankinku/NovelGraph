@@ -29,6 +29,7 @@
 - [복구 및 개발 계획](docs/06-recovery-roadmap.md)
 - [Karpathy·Ponytail 적용 개발 계획 (2026-11-04)](docs/07-implementation-plan-2026-11-04.md)
 - [기존 소스 복구 조사 및 차단 요인 (2026-11-04)](docs/08-source-recovery-audit-2026-11-04.md)
+- [[2/9] 개발환경 기준 고정 (2026-11-04)](docs/09-environment-baseline-2026-11-04.md)
 
 ## 현재 상태
 
