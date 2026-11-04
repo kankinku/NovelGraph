@@ -1,0 +1,120 @@
+"""Read-only, restart-safe operator hints derived from immutable NovelGraph records.
+
+This is a diagnostic snapshot, never a proof of complete manuscript extraction.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+import re
+import sqlite3
+
+from .world_state import _assert_approved_review
+
+_SHA = re.compile(r"^[0-9a-f]{64}$")
+_STATUSES = ("proposed", "approved", "rejected")
+_KINDS = ("entity", "event", "relation", "state_change", "continuity_fact")
+
+
+def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> dict:
+    """Describe the safe next manual step without storing a checkpoint or editing DB."""
+    if (not isinstance(work, str) or not re.fullmatch(r"[\w.-]{1,100}", work)
+            or type(episode) is not int or episode < 1
+            or not isinstance(observed_sha, str) or not _SHA.fullmatch(observed_sha)):
+        raise ValueError("invalid workflow work, episode or source SHA")
+
+    counts = {status: 0 for status in _STATUSES}
+    kinds = {kind: 0 for kind in _KINDS}
+    path = root / "novelgraph.sqlite"
+    result = {
+        "work_id": work,
+        "episode": episode,
+        "observed_source_sha256": observed_sha,
+        "registered_source_sha256": None,
+        "source_status": "database_missing",
+        "candidate_counts": counts,
+        "candidate_kind_counts": kinds,
+        "approved_state_changes_pending_apply": [],
+        "applied_state_change_ids": [],
+        "next_actions": ["EXTRACT_AND_PREFLIGHT"],
+        "halt_mutations": False,
+        "read_only": True,
+        "source_quotes_included": False,
+        "extraction_completeness_verified": False,
+        "human_identity_authenticated": False,
+        "semantic_accuracy_measured": False,
+    }
+
+    if path.is_symlink():
+        raise ValueError("candidate database symlinks are forbidden")
+    if not path.exists():
+        return result
+    if not path.is_file() or path.stat().st_mode & 0o077:
+        raise ValueError("candidate database must be a private regular file")
+
+    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as db:
+        registered = db.execute(
+            "SELECT source_sha256 FROM episodes WHERE work_id=? AND episode=?",
+            (work, episode),
+        ).fetchone()
+        if not registered:
+            result["source_status"] = "episode_unregistered"
+            return result
+
+        result["registered_source_sha256"] = registered[0]
+        result["source_status"] = (
+            "matches_registered" if registered[0] == observed_sha
+            else "source_mismatch"
+        )
+        rows = db.execute(
+            "SELECT candidate_id, kind, status FROM candidates "
+            "WHERE work_id=? AND episode=? ORDER BY candidate_id",
+            (work, episode),
+        ).fetchall()
+
+        approved_changes = set()
+        for cid, kind, status in rows:
+            if status not in counts or kind not in kinds:
+                raise ValueError("unexpected stored candidate kind or status")
+            counts[status] += 1
+            kinds[kind] += 1
+            if status == "approved":
+                _assert_approved_review(db, cid)
+                if kind == "state_change":
+                    approved_changes.add(cid)
+
+        has_applied = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='applied_events'"
+        ).fetchone()
+        applied = set()
+        if has_applied:
+            events = db.execute(
+                "SELECT candidate_id FROM applied_events "
+                "WHERE work_id=? AND source_episode=? ORDER BY candidate_id",
+                (work, episode),
+            ).fetchall()
+            applied = {row[0] for row in events}
+            if not applied.issubset(approved_changes):
+                raise ValueError("applied events do not match approved source candidates")
+
+        result["applied_state_change_ids"] = sorted(applied)
+        result["approved_state_changes_pending_apply"] = sorted(
+            approved_changes - applied
+        )
+
+    if result["source_status"] == "source_mismatch":
+        result["halt_mutations"] = True
+        result["next_actions"] = ["SOURCE_VERSION_AUDIT"]
+        return result
+
+    actions = []
+    if not rows:
+        actions.append("EXTRACT_AND_PREFLIGHT")
+    else:
+        if counts["proposed"]:
+            actions.append("HUMAN_REVIEW")
+        if result["approved_state_changes_pending_apply"]:
+            actions.append("APPLY_APPROVED")
+    if not actions:
+        actions.append("READ_ONLY_CHECKS")
+    result["next_actions"] = actions
+    return result

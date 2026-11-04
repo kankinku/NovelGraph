@@ -153,10 +153,10 @@
 
 **Files:** 운영 가이드, 꼭 필요할 경우 작은 CLI 진입점.
 
-- [ ] 현재 순서 `source-info → import-candidates → status → review → apply → check-continuity → graphify-export`를 작업 절차로 고정.
-- [ ] 중간 중단·재실행 때 재개 지점을 기록.
-- [ ] 사용자 요청 한 번으로 완료 가능한 작업과 ChatGPT 세션 제약으로 불가능한 자동 처리를 명시.
-- [ ] 반복 수작업이 실제로 확인될 때만 최소 헬퍼 추가.
+- [x] `source-info → workflow-status → ChatGPT 후보 추출 → preflight-candidates → import-candidates → status/list → 사용자 검수·승인 → apply-approved(해당 state_change만) → world-state/check-continuity/continuity-report → source-version-audit/graphify-export` 운영 절차 고정. [10단계 지침](../../30-moon-workflow-phase10-2026-11-05.md).
+- [x] 기존 불변 DB를 읽어 `workflow-status`에서 등록 판본·후보 상태·검토 대기·기승인 미적용 ID 및 안전한 재개 힌트 출력. 비공개 운영 로그에 체크포인트를 수동 저장할 수 있으며 DB 체크포인트 스키마는 새로 만들지 않음.
+- [x] 현 대화에서 가능한 의미 추출·후보 등록/진단과 불가능한 무인 모델 호출·자동 검수·사용자 승인 대행을 구분.
+- [x] 후보 상태를 수작업으로 여러 명령에서 합쳐야 하는 불편만 제거하는 읽기 전용 최소 헬퍼 추가. 10개 합성 RED→GREEN 테스트. 실제 인간 독립 검수 및 전 회차 자동 완료는 여전히 미완료.
 
 **Gate:** 다른 작품·DB 혼합 없이 재현 가능한 단일 작업 절차.
 
