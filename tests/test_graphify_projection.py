@@ -229,6 +229,15 @@ class GraphifyProjectionTests(unittest.TestCase):
         self.assertEqual(graph.nodes["entity:seo_title"]["label"], "정 변호사")
         self.assertEqual(graph.nodes["entity:seo_full"]["label"], "정서연")
 
+    def test_forged_approved_entity_without_review_log_is_not_exported(self):
+        ids = self.stage(1, [("가상 인물이 등장했다.", "entity",
+                             self.entity("fictional_a", "가상 인물", "person"))],
+                         approve=False)
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            db.execute("UPDATE candidates SET status='approved' WHERE candidate_id=?", (ids[0],))
+        self.assertIn("approved review log", self.export(1, expected=2))
+        self.assertFalse(self.graph_path.exists())
+
     def test_graph_must_be_regenerated_after_approval(self):
         self.stage(1, [("에블린이 등장했다.", "entity",
                         self.entity("evelyn", "에블린", "person"))])
