@@ -309,6 +309,11 @@ def main(argv: list[str] | None = None) -> int:
     batch.add_argument("--manifest", required=True)
     batch.add_argument("--target", type=int, default=43)
 
+    review_readiness = commands.add_parser(
+        "review-readiness", help="verify private fact worksheet integrity and review completeness"
+    )
+    review_readiness.add_argument("--worksheet", required=True)
+
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -330,6 +335,11 @@ def main(argv: list[str] | None = None) -> int:
             from .batch_readiness import check_batch
             value = check_batch(
                 root, _read_json(_private_file(args.manifest, root)), args.target
+            )
+        elif args.command == "review-readiness":
+            from .review_readiness import check_review_readiness
+            value = check_review_readiness(
+                root, _read_json(_private_file(args.worksheet, root))
             )
         elif args.command == "pilot-evaluate":
             from .pilot_eval import evaluate_pilot
