@@ -318,7 +318,7 @@ def check_continuity(db: sqlite3.Connection, work: str, as_of_episode: int) -> d
             if contract is None or contract["status"] == fact["value"]:
                 continue
             proof = _contract_evidence(db, work, fact["subject_id"],
-                                       fact["source_episode"])
+                                       fact["effective_episode"])
             if proof:
                 findings.append(_finding(
                     "CONFIRMED_CONFLICT", "CONTRACT_LEDGER_STATUS_MISMATCH",
