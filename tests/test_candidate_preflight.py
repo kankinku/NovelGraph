@@ -86,10 +86,22 @@ class CandidatePreflightTests(unittest.TestCase):
             "상대가 거절해 계약서를 서명하지 않았다.",
             kind="continuity_fact",
             payload={"fact_type": "contract", "subject_id": "sola_proposal",
-                     "field": "current_status", "value": "refused"},
+                     "field": "current_status", "value": "disputed"},
         )
         self.assertIn("unsupported contract current_status",
                       self.run_cli([fact], expected=2))
+        self.assertFalse((self.root / "novelgraph.sqlite").exists())
+
+    def test_refused_contract_status_passes_schema_without_creating_state(self):
+        fact = self.candidate(
+            "상대가 거절해 계약서를 서명하지 않았다.",
+            kind="continuity_fact",
+            payload={"fact_type": "contract", "subject_id": "sola_proposal",
+                     "field": "current_status", "value": "refused"},
+        )
+        result = self.run_cli([fact])
+        self.assertEqual(result["continuity_fact_payloads_checked"], 1)
+        self.assertFalse(result["semantic_accuracy_measured"])
         self.assertFalse((self.root / "novelgraph.sqlite").exists())
 
     def test_paid_cash_event_schema_validated_without_applying(self):
