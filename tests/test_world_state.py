@@ -98,6 +98,14 @@ class WorldStateTests(unittest.TestCase):
         self.apply(cid)
         return cid
 
+    def test_list_candidates_exposes_ids_not_private_excerpts(self):
+        cid = self.stage(1, "계약서에 서명했다.\\n", self.sign())
+        listing = self.cli("list-candidates", "--work-id", "fixture", "--episode", "1")
+        self.assertEqual(len(listing["candidates"]), 1)
+        self.assertEqual(listing["candidates"][0]["candidate_id"], cid)
+        self.assertEqual(listing["candidates"][0]["status"], "proposed")
+        self.assertNotIn("계약서에 서명했다.", json.dumps(listing, ensure_ascii=False))
+
     def test_explicit_review_required_and_audited(self):
         cid = self.stage(1, "현금은 100000달러였다.\n", self.opening())
         self.assertIn("explicit approval", self.apply(cid, expected=2))
