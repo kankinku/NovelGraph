@@ -303,6 +303,12 @@ def main(argv: list[str] | None = None) -> int:
     pilot.add_argument("--gold", required=True)
     pilot.add_argument("--predictions", required=True)
 
+    batch = commands.add_parser(
+        "batch-readiness", help="check private 1..N source manifest and registration coverage"
+    )
+    batch.add_argument("--manifest", required=True)
+    batch.add_argument("--target", type=int, default=43)
+
     args = parser.parse_args(argv)
     try:
         root = _data_root(args.data_root)
@@ -320,6 +326,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "list-candidates":
             value = list_candidates(root, _check_work_id(args.work_id),
                                     _check_episode(args.episode))
+        elif args.command == "batch-readiness":
+            from .batch_readiness import check_batch
+            value = check_batch(
+                root, _read_json(_private_file(args.manifest, root)), args.target
+            )
         elif args.command == "pilot-evaluate":
             from .pilot_eval import evaluate_pilot
             value = evaluate_pilot(
