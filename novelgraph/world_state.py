@@ -56,7 +56,7 @@ def _payload(row):
     if type(effective_episode) is not int or not (1 <= effective_episode <= source_episode):
         _fail("effective_episode must be an integer from 1 to the source episode")
     event_type = value.get("event_type")
-    if event_type not in EVENT_TYPES:
+    if not isinstance(event_type, str) or event_type not in EVENT_TYPES:
         _fail("unsupported event_type; use an explicit state-change event")
     actor = _id(value.get("actor_id"), "actor_id")
     allowed = {
