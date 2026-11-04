@@ -40,6 +40,7 @@
 - [[8/9] 비공개 실제 1~5화 파일럿 실측 보고](docs/17-real-private-corpus-pilot-2026-11-04.md)
 - [[실사용 전환 01/12] 기준선·안전 감사](docs/18-production-baseline-2026-11-05.md)
 - [실사용 전환 Superpowers 실행 계획](docs/superpowers/plans/2026-11-05-novelgraph-production-plan.md)
+- [[실사용 전환 02/12] 실제 원고 정보 누락 예비 대조](docs/19-fact-gap-preaudit-2026-11-05.md)
 
 ## 현재 상태
 
