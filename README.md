@@ -30,9 +30,10 @@
 - [Karpathy·Ponytail 적용 개발 계획 (2026-11-04)](docs/07-implementation-plan-2026-11-04.md)
 - [기존 소스 복구 조사 및 차단 요인 (2026-11-04)](docs/08-source-recovery-audit-2026-11-04.md)
 - [[2/9] 개발환경 기준 고정 (2026-11-04)](docs/09-environment-baseline-2026-11-04.md)
+- [[3/9] Graphify 적용성 실증 (2026-11-04)](docs/10-graphify-feasibility-2026-11-04.md)
 
 ## 현재 상태
 
-이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **설계 문서만 존재**하고, 이전 Moon에 있었던 NovelGraph 원본 코드·과거 테스트 로그·커밋 복구는 **미완료**이다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
+이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **설계 문서와 Graphify 호환성 테스트만 존재**하며, NovelGraph 본체 및 이전 Moon 원본 코드·과거 테스트 로그·커밋 복구는 **미완료**이다. Graphify 그래프 저장·조회 테스트 2개는 현재 Moon에서 통과했다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
 
 관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 실제 적용 여부는 소스 복구 후 재검증 필요.
