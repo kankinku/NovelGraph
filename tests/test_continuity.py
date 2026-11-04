@@ -106,6 +106,46 @@ class ContinuityTests(unittest.TestCase):
         self.assertIn("approved review log", self.cli(
             "check-continuity", "--work-id", "novel", "--episode", "1", expected=2))
 
+    def test_contract_proposal_ledger_evidence_exposes_wrong_signed_claim(self):
+        proposal = self.stage(1, "투자 계약을 제안했다.\n", {
+            "event_type": "contract_proposed", "actor_id": "investor",
+            "contract_id": "proposal:alpha", "company_id": "alpha",
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[proposal]),
+                 "--candidate-id", proposal)
+        false_signed = self.fact(
+            2, "아직 제안인데 이미 서명했다고 잘못 주장했다.\n",
+            "contract", "proposal:alpha", "current_status", "signed",
+            effective_episode=1,
+        )
+        out = self.check(2)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 1)
+        finding = out["findings"][0]
+        self.assertEqual(finding["reason_code"], "CONTRACT_LEDGER_STATUS_MISMATCH")
+        self.assertEqual(finding["ledger_status"], "proposed")
+        self.assertEqual({x["candidate_id"] for x in finding["evidence"]},
+                         {proposal, false_signed})
+
+    def test_contract_refused_fact_is_valid_and_matches_ledger(self):
+        proposed = self.stage(1, "투자 제안이 있었다.\n", {
+            "event_type": "contract_proposed", "actor_id": "investor",
+            "contract_id": "proposal:alpha", "company_id": "alpha",
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[proposed]),
+                 "--candidate-id", proposed)
+        refused = self.stage(2, "투자 제안을 명시적으로 거절했다.\n", {
+            "event_type": "contract_refused", "actor_id": "investor",
+            "contract_id": "proposal:alpha",
+        }, kind="state_change")
+        self.cli("apply-approved", "--source", str(self.documents[refused]),
+                 "--candidate-id", refused)
+        self.fact(3, "해당 투자 제안은 거절 상태다.\n", "contract",
+                  "proposal:alpha", "current_status", "refused",
+                  effective_episode=2)
+        out = self.check(3)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
+        self.assertEqual(out["counts"]["NEEDS_REVIEW"], 0)
+
     def test_same_event_weekday_conflict_has_both_evidence_spans(self):
         a = self.fact(1, "회담은 월요일이었다.\n", "time",
                       "meeting:1", "weekday", "monday")
