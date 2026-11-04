@@ -43,6 +43,7 @@
 - [[실사용 전환 02/12] 실제 원고 정보 누락 예비 대조](docs/19-fact-gap-preaudit-2026-11-05.md)
 - [[실사용 전환 02/12] 독립 검수 준비도·원문 근거 확인](docs/20-review-readiness-phase2-2026-11-05.md)
 - [[실사용 전환 02/12] 1차 독립 판독·2차 후보 대조 문서 분리](docs/21-blind-review-packets-phase2-2026-11-05.md)
+- [[실사용 전환 02/12] 71개 후보의 모델 예비 의미 검토](docs/22-model-71-semantic-triage-2026-11-05.md)
 
 ## 현재 상태
 
