@@ -150,6 +150,9 @@ def review_candidate(db, candidate_id, sha, text, decision, reviewer, reason):
             _fail("candidate has already been reviewed; reviews are immutable")
         if decision == "approve" and row["kind"] == "state_change":
             _payload(row)
+        if decision == "approve" and row["kind"] == "continuity_fact":
+            from .continuity import validate_fact
+            validate_fact(row)
         _init_tables(db)
         state = "approved" if decision == "approve" else "rejected"
         db.execute("UPDATE candidates SET status=? WHERE candidate_id=?",
