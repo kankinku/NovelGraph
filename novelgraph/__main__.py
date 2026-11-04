@@ -351,6 +351,15 @@ def main(argv: list[str] | None = None) -> int:
     workflow.add_argument("--work-id", required=True)
     workflow.add_argument("--episode", required=True, type=int)
     workflow.add_argument("--source", required=True)
+    backup_cmd = commands.add_parser(
+        "backup-database", help="create a private, verified SQLite snapshot without overwriting"
+    )
+    backup_cmd.add_argument("--output", required=True)
+    restore_cmd = commands.add_parser(
+        "restore-database", help="verify private backup and restore only to a new SQLite file"
+    )
+    restore_cmd.add_argument("--backup", required=True)
+    restore_cmd.add_argument("--output", required=True)
     get_status = commands.add_parser("status", help="view candidate counts without leaking excerpts")
     get_status.add_argument("--work-id", required=True)
     get_status.add_argument("--episode", required=True, type=int)
@@ -463,6 +472,12 @@ def main(argv: list[str] | None = None) -> int:
             value = preflight_candidates(
                 root, _private_file(args.source, root), _private_file(args.input, root)
             )
+        elif args.command == "backup-database":
+            from .recovery import backup_database
+            value = backup_database(root, args.output)
+        elif args.command == "restore-database":
+            from .recovery import restore_database
+            value = restore_database(root, args.backup, args.output)
         elif args.command == "workflow-status":
             from .workflow import workflow_status
             source = _private_file(args.source, root)
