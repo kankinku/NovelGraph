@@ -119,4 +119,4 @@ cd /shared/NovelGraph
 - Moon MCP: 이 작업 중 **Connection failed / 내부 오류**로 연결이 불안정해 현재 신규 코드의 Moon 내 테스트와 `/shared/NovelGraph` 동기화를 검증하지 못했다.
 - 따라서 GitHub CI 통과와 Moon 검증을 동등하게 기록하지 않으며, 실제 원고 분석의 정확도를 검증한 것으로 간주하지 않는다.
 
-> CI 통과는 확인됐으나 Moon 테스트·`main` 병합 상태는 후속 작업에서 별도로 기록한다.
+> **GitHub main 병합 완료:** PR #2, squash 커밋 `ee40bc466b333e5f3a23c0552b64cf5ffcf760f8`. GitHub CI 41/41 통과. **Moon의 6단계 코드 동기화 및 Moon 내 테스트는 연결 장애로 미완료**이며, 검증한 것으로 주장하지 않는다.
