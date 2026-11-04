@@ -204,6 +204,115 @@ class WorldStateTests(unittest.TestCase):
         self.assertEqual(self.state(3), early)
         self.assertEqual(self.state(5)["cash"]["evelyn"]["USD"], "101000")
 
+    def test_model_assessment_cannot_approve_or_apply(self):
+        cid = self.stage(1, "계약서 서명 가능성만 검토했다.\n", self.sign())
+        self.assertIn("explicit approval", self.apply(cid, expected=2))
+        result = self.cli(
+            "assess-candidate", "--source", str(self.sources[cid]),
+            "--candidate-id", cid, "--assessment", "supports",
+            "--model-label", "synthetic_model", "--reason", "tentative model interpretation"
+        )
+        self.assertEqual(result["assessment"], "supports")
+        self.assertFalse(result["official_status_changed"])
+        self.assertFalse(result["authenticated_human_approval"])
+        self.assertIn("explicit approval", self.apply(cid, expected=2))
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            self.assertEqual(
+                db.execute("SELECT status FROM candidates WHERE candidate_id=?", (cid,)).fetchone()[0],
+                "proposed"
+            )
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM model_assessments").fetchone()[0], 1)
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name='review_log'"
+            ).fetchone()[0], 0)
+        self.assertEqual(self.state(1)["event_count"], 0)
+
+    def test_model_assessment_and_official_review_are_distinct(self):
+        cid = self.stage(1, "현금 100000달러.\n", self.opening())
+        self.cli("assess-candidate", "--source", str(self.sources[cid]),
+                 "--candidate-id", cid, "--assessment", "needs_review",
+                 "--model-label", "synthetic_model", "--reason", "verify actual cash")
+        listing = self.cli("review-audit", "--work-id", "fixture", "--episode", "1")
+        self.assertEqual(listing["model_assessments"], 1)
+        self.assertEqual(listing["official_approved"], 0)
+        self.assertEqual(listing["official_proposed"], 1)
+        self.assertFalse(listing["human_identity_authenticated"])
+        self.review(cid)
+        audit = self.cli("review-audit", "--work-id", "fixture", "--episode", "1")
+        self.assertEqual(audit["model_assessments"], 1)
+        self.assertEqual(audit["official_approved"], 1)
+        self.assertEqual(audit["approved_with_review_log"], 1)
+        self.assertEqual(audit["approved_missing_review_log"], [])
+        self.assertFalse(audit["human_identity_authenticated"])
+        self.assertEqual(self.state(1)["event_count"], 0)
+        self.apply(cid)
+        self.assertEqual(self.state(1)["event_count"], 1)
+
+    def test_forged_approved_status_without_review_log_cannot_apply(self):
+        cid = self.stage(1, "100000달러 현금이 있다.\n", self.opening())
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            db.execute("UPDATE candidates SET status='approved' WHERE candidate_id=?", (cid,))
+        warning = self.cli("review-audit", "--work-id", "fixture", "--episode", "1")
+        self.assertEqual(warning["approved_missing_review_log"], [cid])
+        self.assertIn("approved review log", self.apply(cid, expected=2))
+        self.assertEqual(self.state(1)["event_count"], 0)
+
+    def test_model_assessment_bad_source_fails_without_logging(self):
+        cid = self.stage(1, "현금 100000달러.\n", self.opening())
+        self.sources[cid].write_text("현금 900000달러.\n", encoding="utf-8")
+        problem = self.cli(
+            "assess-candidate", "--source", str(self.sources[cid]),
+            "--candidate-id", cid, "--assessment", "supports",
+            "--model-label", "synthetic_model", "--reason", "should reject wrong SHA",
+            expected=2,
+        )
+        self.assertIn("source hash differs", problem)
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name='model_assessments'"
+            ).fetchone()[0], 0)
+
+    def test_model_assessment_invalid_verdict_rejected(self):
+        cid = self.stage(1, "현금 100000달러.\n", self.opening())
+        bad = self.cli(
+            "assess-candidate", "--source", str(self.sources[cid]),
+            "--candidate-id", cid, "--assessment", "approve",
+            "--model-label", "synthetic_model", "--reason", "model tries to approve",
+            expected=2,
+        )
+        self.assertIn("invalid choice", bad)
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            self.assertEqual(
+                db.execute("SELECT status FROM candidates WHERE candidate_id=?", (cid,)).fetchone()[0],
+                "proposed"
+            )
+
+    def test_model_assessment_cannot_change_rejected_candidate(self):
+        cid = self.stage(1, "현금 100000달러.\n", self.opening())
+        self.review(cid, "reject")
+        problem = self.cli(
+            "assess-candidate", "--source", str(self.sources[cid]),
+            "--candidate-id", cid, "--assessment", "supports",
+            "--model-label", "synthetic_model", "--reason", "too late",
+            expected=2,
+        )
+        self.assertIn("proposed", problem)
+        self.assertEqual(self.state(1)["event_count"], 0)
+
+    def test_stored_candidate_payload_tampering_rejected_before_review(self):
+        cid = self.stage(1, "현금은 100000달러였다.\n", self.opening())
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            payload = dict(self.opening(), amount="900000")
+            db.execute("UPDATE candidates SET payload_json=? WHERE candidate_id=?",
+                       (json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                                   separators=(",", ":")), cid))
+        self.assertIn("integrity hash mismatch", self.review(cid, expected=2))
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            self.assertEqual(
+                db.execute("SELECT status FROM candidates WHERE candidate_id=?",
+                           (cid,)).fetchone()[0], "proposed"
+            )
+
     def test_source_modification_blocks_review_or_apply(self):
         cid = self.stage(1, "현금 100000달러.\n", self.opening())
         self.sources[cid].write_text("현금 200000달러.\n", encoding="utf-8")

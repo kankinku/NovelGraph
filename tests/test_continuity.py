@@ -98,6 +98,14 @@ class ContinuityTests(unittest.TestCase):
         return self.cli("check-continuity", "--work-id", "novel",
                         "--episode", str(episode))
 
+    def test_forged_approved_continuity_without_review_log_is_rejected(self):
+        cid = self.fact(1, "가상의 모임은 월요일이었다.\n", "time",
+                        "meeting:forged", "weekday", "monday", approved=False)
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            db.execute("UPDATE candidates SET status='approved' WHERE candidate_id=?", (cid,))
+        self.assertIn("approved review log", self.cli(
+            "check-continuity", "--work-id", "novel", "--episode", "1", expected=2))
+
     def test_same_event_weekday_conflict_has_both_evidence_spans(self):
         a = self.fact(1, "회담은 월요일이었다.\n", "time",
                       "meeting:1", "weekday", "monday")

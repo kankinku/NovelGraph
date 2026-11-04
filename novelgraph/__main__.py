@@ -303,6 +303,23 @@ def main(argv: list[str] | None = None) -> int:
     reviewer.add_argument("--reviewer", required=True)
     reviewer.add_argument("--reason", required=True)
 
+    assessment = commands.add_parser(
+        "assess-candidate", help="record a model opinion without reviewing or approving"
+    )
+    assessment.add_argument("--source", required=True)
+    assessment.add_argument("--candidate-id", required=True)
+    assessment.add_argument("--assessment", choices=(
+        "supports", "needs_review", "unsupported"
+    ), required=True)
+    assessment.add_argument("--model-label", required=True)
+    assessment.add_argument("--reason", required=True)
+
+    review_audit = commands.add_parser(
+        "review-audit", help="read-only summary of model assessments and approval trails"
+    )
+    review_audit.add_argument("--work-id", required=True)
+    review_audit.add_argument("--episode", required=True, type=int)
+
     apply_cmd = commands.add_parser("apply-approved", help="apply approved state-change event")
     apply_cmd.add_argument("--source", required=True)
     apply_cmd.add_argument("--candidate-id", required=True)
@@ -400,6 +417,18 @@ def main(argv: list[str] | None = None) -> int:
                 root, _read_json(_private_file(args.worksheet, root)),
                 args.blind_output, args.comparison_output,
             )
+        elif args.command == "review-audit":
+            from .world_state import audit_reviews
+            db_path = root / DB_NAME
+            if db_path.is_symlink() or not db_path.is_file():
+                _fatal("candidate database does not exist or is not a regular file")
+            if db_path.stat().st_mode & 0o077:
+                _fatal("candidate database must be private")
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+                value = audit_reviews(
+                    db, _check_work_id(args.work_id),
+                    _check_episode(args.episode),
+                )
         elif args.command == "identity-audit":
             from .identity_audit import audit_identities
             db_path = root / DB_NAME
@@ -458,7 +487,9 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 db.close()
         else:
-            from .world_state import approve_and_apply, review_candidate, world_state
+            from .world_state import (
+                approve_and_apply, assess_candidate, review_candidate, world_state
+            )
             db_path = root / DB_NAME
             if not db_path.is_file():
                 _fatal("candidate database does not exist")
@@ -474,6 +505,11 @@ def main(argv: list[str] | None = None) -> int:
                         value = review_candidate(
                             db, args.candidate_id, digest, text,
                             args.decision, args.reviewer, args.reason,
+                        )
+                    elif args.command == "assess-candidate":
+                        value = assess_candidate(
+                            db, args.candidate_id, digest, text,
+                            args.assessment, args.model_label, args.reason,
                         )
                     else:
                         value = approve_and_apply(db, args.candidate_id, digest, text)

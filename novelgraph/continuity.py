@@ -11,7 +11,7 @@ import hashlib
 import json
 import sqlite3
 
-from .world_state import _id, _decimal, _replay
+from .world_state import _assert_approved_review, _id, _decimal, _replay
 
 FACT_FIELDS = {
     "time": {"date", "weekday"},
@@ -210,6 +210,8 @@ def check_continuity(db: sqlite3.Connection, work: str, as_of_episode: int) -> d
            ORDER BY c.episode,c.evidence_start,c.candidate_id""",
         (work, as_of_episode),
     ).fetchall()
+    for row in rows:
+        _assert_approved_review(db, row["candidate_id"])
     parsed = [validate_fact(row) for row in rows]
     parsed = [item for item in parsed if item["effective_episode"] <= as_of_episode]
     assertions = [item for item in parsed if item["fact_type"] != "change"]
