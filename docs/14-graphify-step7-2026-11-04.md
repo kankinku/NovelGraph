@@ -1,6 +1,6 @@
 # [7/9] Graphify 실제 연동 및 원문 근거 추적 — 2026-11-04
 
-> 개발 기준: `kankinku/NovelGraph`, PR #3 `feat/graphify-step7`. 이 문서는 **공개 GitHub의 합성 픽스처 테스트 결과**를 설명한다. Moon MCP 연결 오류로 현재 Moon `/shared/NovelGraph`에서 6·7단계를 재검증하거나 동기화하지 못했다. 그 작업을 완료했다고 표기하지 않는다.
+> **병합 완료:** PR #3 `feat/graphify-step7` → `main`, 커밋 `efc903afb73446589624094a7dc61de3c0d8fe6a`. 이 문서는 **공개 GitHub의 합성 픽스처 테스트 결과**를 설명한다. Moon MCP 연결 오류로 현재 Moon `/shared/NovelGraph`에서 6·7단계를 재검증하거나 동기화하지 못했다. 그 작업을 완료했다고 표기하지 않는다.
 
 ## 1. 역할 및 불변 조건
 
@@ -96,7 +96,7 @@ $PY -m graphify path 에블린 오로라 --graph "$PRIVATE/graph.json"
 - 합성 픽스처 전용 신규 15개 테스트: 승인 엔티티/사건/관계 및 Evidence, Graphify CLI 경로, 복수 관계 손실 방지, 미승인 후보 제외, 상태 변경 적용 후 포함, 회차 필터링, 오래된 그래프 차단, 변조 차단, 비공개 경로 보호, 역방향 관계 표시, 원장 비변경, 스키마 오류 처리.
 - GitHub Actions: **전체 56/56 통과**, Python 3.12, `graphifyy==0.9.102` (2026-11-04 UTC 기준 실행).
 - 신규 15개 + 종전 41개 테스트. 이는 장편 실증 정확도를 보증하지 않는다.
-- **Moon 검증 대기:** 현재 Moon 접속 문제로 `/shared/NovelGraph` 코드를 최신 GitHub에 동기화하지 못했고 Moon에서 55개 테스트를 재현하지 못했다.
+- **Moon 검증 대기:** 현재 Moon 접속 문제로 `/shared/NovelGraph` 코드를 최신 GitHub에 동기화하지 못했고 Moon에서 56개 테스트를 재현하지 못했다.
 
 ## 7. 다음 단계
 
@@ -109,3 +109,11 @@ $PY -m graphify path 에블린 오로라 --graph "$PRIVATE/graph.json"
 ## 8. 추가 보안 검증 (2026-11-04)
 
 후보 등록 때 계산한 SHA-256 식별자를 Graphify 투영 직전에 재검증한다. SQLite의 `evidence_text`가 원본과 **동일한 문자 수**를 유지한 채 바뀌더라도 후보 ID 재계산 결과가 일치하지 않아 내보내기를 중단한다. 그래프 파일의 무단 추가 속성도 거부한다. 이 검증은 원본 원고 파일 자체의 별도 버전 검증을 대체하지 않는다.
+
+## 9. GitHub 병합 완료 기록
+
+- PR #3: https://github.com/kankinku/NovelGraph/pull/3
+- `main` squash 병합: `efc903afb73446589624094a7dc61de3c0d8fe6a`
+- 합성 테스트: **GitHub Actions 56/56 통과** (Graphify 신규 15개 포함)
+- 공개 저장소 변경 파일: `README.md`, 개발 계획, Graphify 연동 보고서, `novelgraph/__main__.py`, `novelgraph/graphify_bridge.py`, `tests/test_graphify_projection.py` — 실제 원고와 DB 없음
+- **Moon:** 신규 6·7단계 코드 미동기화 / 테스트 미실행 (MCP 연결 실패). GitHub CI 통과와 동일시하지 않음.
