@@ -32,9 +32,10 @@
 - [[2/9] 개발환경 기준 고정 (2026-11-04)](docs/09-environment-baseline-2026-11-04.md)
 - [[3/9] Graphify 적용성 실증 (2026-11-04)](docs/10-graphify-feasibility-2026-11-04.md)
 - [[4/9] 분석 후보 격리 저장 MVP (2026-11-04)](docs/11-candidate-intake-mvp-2026-11-04.md)
+- [[5/9] 동적 세계 상태 엔진 (2026-11-04)](docs/12-world-state-step5-2026-11-04.md)
 
 ## 현재 상태
 
-이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 다만 승인·동적 세계 상태·연속성 검출 및 이전 Moon 원본 복구는 **미완료**이다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
+이 저장소(`kankinku/NovelGraph`)는 GitHub `main` 브랜치에 게시되었으며 Moon `/shared/NovelGraph`에 복제되어 있다. 현재는 **후보 수집·원문 근거 검증·중복 방지용 최소 CLI와 테스트**가 구현되어 있다. Graphify 저장·조회 테스트 2개, 후보 격리 테스트 10개가 개별 검증에서 통과했다. 현재 승인 로그·동적 세계 상태 엔진은 구현되어 가상 테스트 23개가 GitHub와 Moon에서 통과했다. 연속성 충돌 검출과 이전 Moon 원본 복구는 **미완료**이다. 상세 실행 계획은 [07 문서](docs/07-implementation-plan-2026-11-04.md)를 따른다.
 
 관련 참조: [Graphify](https://github.com/Graphify-Labs/graphify) — 그래프 저장·조회 호환성은 확인했으나 NovelGraph 본체 연동은 [7/9] 단계에 예정.
