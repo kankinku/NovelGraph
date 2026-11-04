@@ -158,7 +158,8 @@ def _finding(category, reason_code, subject, field, evidence, **details):
 
 def _matching_change(changes: list[dict], before: dict, after: dict):
     for item in changes:
-        if (item["subject_id"] == before["subject_id"]
+        if (item["certainty"] == "confirmed"
+                and item["subject_id"] == before["subject_id"]
                 and item["field"] == before["field"]
                 and item["currency"] == before["currency"]
                 and item["from_value"] == before["value"]
@@ -170,7 +171,7 @@ def _matching_change(changes: list[dict], before: dict, after: dict):
 
 
 def _contract_evidence(db: sqlite3.Connection, work: str, contract_id: str,
-                       episode: int):
+                       effective_episode: int, known_at_episode: int):
     rows = db.execute(
         """SELECT ae.candidate_id, ae.source_episode, ae.effective_episode,
                   ae.evidence_start, c.evidence_end, e.source_sha256,
@@ -185,7 +186,7 @@ def _contract_evidence(db: sqlite3.Connection, work: str, contract_id: str,
                  'contract_signed','equity_transfer'
              )
            ORDER BY ae.source_episode DESC,ae.evidence_start DESC""",
-        (work, episode, episode),
+        (work, known_at_episode, effective_episode),
     ).fetchall()
     for row in rows:
         payload = json.loads(row["payload_json"])
@@ -321,12 +322,13 @@ def check_continuity(db: sqlite3.Connection, work: str, as_of_episode: int) -> d
                 continue
             # Compare the historical moment described by the assertion, not
             # a later transfer that happened after that moment.
-            known_state = _replay(db, work, fact["effective_episode"])
+            known_state = _replay(db, work, fact["effective_episode"],
+                                  known_at_episode=fact["source_episode"])
             contract = known_state["contracts"].get(fact["subject_id"])
             if contract is None or contract["status"] == fact["value"]:
                 continue
             proof = _contract_evidence(db, work, fact["subject_id"],
-                                       fact["effective_episode"])
+                                       fact["effective_episode"], fact["source_episode"])
             if proof:
                 findings.append(_finding(
                     "CONFIRMED_CONFLICT", "CONTRACT_LEDGER_STATUS_MISMATCH",
