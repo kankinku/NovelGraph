@@ -345,6 +345,12 @@ def main(argv: list[str] | None = None) -> int:
     version.add_argument("--episode", required=True, type=int)
     version.add_argument("--source", required=True)
 
+    workflow = commands.add_parser(
+        "workflow-status", help="read-only source and approval checkpoint for manual resume"
+    )
+    workflow.add_argument("--work-id", required=True)
+    workflow.add_argument("--episode", required=True, type=int)
+    workflow.add_argument("--source", required=True)
     get_status = commands.add_parser("status", help="view candidate counts without leaking excerpts")
     get_status.add_argument("--work-id", required=True)
     get_status.add_argument("--episode", required=True, type=int)
@@ -456,6 +462,14 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "preflight-candidates":
             value = preflight_candidates(
                 root, _private_file(args.source, root), _private_file(args.input, root)
+            )
+        elif args.command == "workflow-status":
+            from .workflow import workflow_status
+            source = _private_file(args.source, root)
+            _, observed_sha, _ = _source(source)
+            value = workflow_status(
+                root, _check_work_id(args.work_id), _check_episode(args.episode),
+                observed_sha,
             )
         elif args.command == "source-version-audit":
             value = audit_source_version(
