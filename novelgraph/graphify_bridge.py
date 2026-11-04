@@ -15,7 +15,7 @@ from graphify.export import to_json
 from graphify.paths import load_node_link_graph
 
 from .continuity import validate_fact
-from .world_state import _id, _payload
+from .world_state import _assert_approved_review, _id, _payload
 
 ENTITY_TYPES = {"person", "organization", "place", "contract", "asset", "object"}
 GRAPH_SCHEMA = 1
@@ -254,6 +254,9 @@ def project_graph(db: sqlite3.Connection, work_id: str, episode: int) -> nx.DiGr
                ORDER BY ae.source_episode,c.evidence_start,c.candidate_id""",
             (work_id, episode, episode),
         ).fetchall()
+    # Approved status alone is not sufficient: require the immutable review trail.
+    for row in [*rows, *applied]:
+        _assert_approved_review(db, row["candidate_id"])
     # Install all reviewed entity labels first so referenced identities do not
     # depend on the episode ordering of their approved relation/event candidates.
     for row in rows:
