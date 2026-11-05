@@ -33,6 +33,8 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
         "source_status": "database_missing",
         "candidate_counts": counts,
         "candidate_kind_counts": kinds,
+        "model_review": {"supports": 0, "needs_review": 0,
+                         "unsupported": 0, "unassessed": 0},
         "approved_state_changes_pending_apply": [],
         "applied_state_change_ids": [],
         "next_actions": ["EXTRACT_AND_PREFLIGHT"],
@@ -72,15 +74,35 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
         ).fetchall()
 
         approved_changes = set()
+        proposed_ids = set()
         for cid, kind, status in rows:
             if status not in counts or kind not in kinds:
                 raise ValueError("unexpected stored candidate kind or status")
             counts[status] += 1
             kinds[kind] += 1
+            if status == "proposed":
+                proposed_ids.add(cid)
             if status == "approved":
                 _assert_approved_review(db, cid)
                 if kind == "state_change":
                     approved_changes.add(cid)
+
+        opinions = {}
+        if proposed_ids and db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_assessments'"
+        ).fetchone():
+            for cid, assessment in db.execute(
+                "SELECT ma.candidate_id, ma.assessment FROM model_assessments ma "
+                "JOIN candidates c ON c.candidate_id=ma.candidate_id "
+                "WHERE c.work_id=? AND c.episode=? AND c.status='proposed' "
+                "ORDER BY ma.assessment_id", (work, episode)
+            ):
+                if assessment not in ("supports", "needs_review", "unsupported"):
+                    raise ValueError("unexpected model assessment")
+                opinions[cid] = assessment
+        for assessment in opinions.values():
+            result["model_review"][assessment] += 1
+        result["model_review"]["unassessed"] = len(proposed_ids) - len(opinions)
 
         has_applied = db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='applied_events'"
