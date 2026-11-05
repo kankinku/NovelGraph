@@ -106,6 +106,28 @@ class WorldStateTests(unittest.TestCase):
         self.assertEqual(listing["candidates"][0]["status"], "proposed")
         self.assertNotIn("계약서에 서명했다.", json.dumps(listing, ensure_ascii=False))
 
+    def test_unreviewed_world_state_query_does_not_create_tables(self):
+        self.stage(1, "아직 승인되지 않은 현금 관측.\n", self.opening())
+        db_path = self.root / "novelgraph.sqlite"
+        before = db_path.read_bytes()
+        with sqlite3.connect(db_path) as db:
+            tables = {row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+            self.assertNotIn("applied_events", tables)
+            self.assertNotIn("review_log", tables)
+        first = self.state(1)
+        second = self.state(1)
+        self.assertEqual(first, second)
+        self.assertEqual(first["event_count"], 0)
+        self.assertEqual(first["cash"], {})
+        self.assertEqual(before, db_path.read_bytes())
+        with sqlite3.connect(db_path) as db:
+            tables_after = {row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+        self.assertEqual(tables, tables_after)
+
     def test_explicit_review_required_and_audited(self):
         cid = self.stage(1, "현금은 100000달러였다.\n", self.opening())
         self.assertIn("explicit approval", self.apply(cid, expected=2))
