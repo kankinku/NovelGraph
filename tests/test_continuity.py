@@ -221,6 +221,61 @@ class ContinuityTests(unittest.TestCase):
         self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
         self.assertEqual(out["counts"]["NEEDS_REVIEW"], 0)
 
+    def test_amount_relation_qualifiers_prevent_false_exact_equality(self):
+        self.stage(1, "잔액이 55만 달러를 넘었다.\n", {
+            "fact_type": "amount", "subject_id": "trading:cash",
+            "field": "amount", "currency": "USD", "value": "550000",
+            "amount_relation": "greater_than",
+        })
+        self.fact(2, "잔액은 55만 달러라고 적었다.\n",
+                  "amount", "trading:cash", "amount", "550000",
+                  currency="USD", effective_episode=1)
+        out = self.check(2)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
+        self.assertTrue(any(
+            item["reason_code"] == "QUALIFIED_AMOUNT_COMPARISON"
+            and item["category"] == "INSUFFICIENT_EVIDENCE"
+            for item in out["findings"]
+        ))
+
+    def test_approximate_vs_exact_and_lower_bound_do_not_invent_precision(self):
+        self.stage(1, "계약 비용은 약 38만 달러였다.\n", {
+            "fact_type": "amount", "subject_id": "put:premium",
+            "field": "amount", "currency": "USD", "value": "380000",
+            "amount_relation": "approximate",
+        })
+        self.stage(2, "비용은 38만 달러 이상이었다.\n", {
+            "fact_type": "amount", "subject_id": "put:premium",
+            "field": "amount", "currency": "USD", "value": "380000",
+            "amount_relation": "at_least",
+        })
+        out = self.check(2)
+        self.assertEqual(out["counts"]["CONFIRMED_CONFLICT"], 0)
+        self.assertTrue(any(f["reason_code"] == "QUALIFIED_AMOUNT_COMPARISON"
+                            for f in out["findings"]))
+
+    def test_invalid_amount_relation_fails_before_approval(self):
+        for payload in (
+            {"fact_type": "amount", "subject_id": "account",
+             "field": "amount", "currency": "USD", "value": "500",
+             "amount_relation": "about-ish"},
+            {"fact_type": "time", "subject_id": "meeting",
+             "field": "weekday", "value": "monday",
+             "amount_relation": "approximate"},
+            {"fact_type": "change", "subject_id": "account",
+             "field": "amount", "currency": "USD", "from_value": "10",
+             "to_value": "20", "reason_code": "amended",
+             "amount_relation": "approximate"},
+        ):
+            cid = self.stage(1, "가상의 정보.\n", payload, approved=False)
+            result = self.cli(
+                "review-candidate", "--source", str(self.documents[cid]),
+                "--candidate-id", cid, "--decision", "approve",
+                "--reviewer", "synthetic", "--reason", "invalid qualifier",
+                expected=2
+            )
+            self.assertIn("amount_relation", result)
+
     def test_confirmed_same_moment_amount_disagreement_is_conflict(self):
         one = self.fact(1, "같은 거래의 최종 가격은 15만 달러였다.\n",
                         "amount", "transaction:fixed", "amount", "150000",

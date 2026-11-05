@@ -147,6 +147,48 @@ class WorldStateTests(unittest.TestCase):
         self.assertIsNone(d["total_assets"])
         self.assertEqual([x["event_count"] for x in (a, b, c, d)], [1, 2, 3, 4])
 
+    def test_delegate_signature_preserves_economic_holder_during_payment_and_transfer(self):
+        opening = {"event_type": "cash_opening", "actor_id": "child_trust",
+                   "currency": "USD", "amount": "100000"}
+        self.approved_event(1, "미성년자 신탁 장부의 현금은 10만 달러.\n", opening)
+        signature = {"event_type": "contract_signed", "actor_id": "child_trust",
+                     "signer_id": "grandfather_guardian",
+                     "contract_id": "coca_cola_1891", "company_id": "coca_cola",
+                     "equity_pct": "15"}
+        self.approved_event(2, "조부가 신탁을 대신해 15% 지분 계약에 서명했다.\n",
+                            signature)
+        self.approved_event(3, "신탁이 대금 25000달러를 지급했다.\n", {
+            "event_type": "cash_payment", "actor_id": "child_trust",
+            "currency": "USD", "amount": "25000",
+            "transaction_id": "coca_1892_payment", "contract_id": "coca_cola_1891",
+        })
+        self.approved_event(4, "신탁으로 지분 15%가 이전됐다.\n", {
+            "event_type": "equity_transfer", "actor_id": "child_trust",
+            "contract_id": "coca_cola_1891",
+        })
+        before = self.state(2)
+        after = self.state(4)
+        self.assertEqual(before["contracts"]["coca_cola_1891"]["signer_id"],
+                         "grandfather_guardian")
+        self.assertEqual(before["cash"]["child_trust"]["USD"], "100000")
+        self.assertEqual(before["ownership"], {})
+        self.assertEqual(after["cash"]["child_trust"]["USD"], "75000")
+        self.assertEqual(after["ownership"]["child_trust"]["coca_cola"], "15")
+        self.assertEqual(after["contracts"]["coca_cola_1891"]["actor_id"], "child_trust")
+        self.assertEqual(after["event_count"], 4)
+        self.assertIsNone(after["total_assets"])
+
+    def test_invalid_delegate_signer_id_is_rejected(self):
+        payload = {"event_type": "contract_signed", "actor_id": "child_trust",
+                   "signer_id": "invalid signer with spaces",
+                   "contract_id": "coca_cola_1891", "company_id": "coca_cola",
+                   "equity_pct": "15"}
+        cid = self.stage(1, "가상의 계약 초안.\n", payload)
+        self.assertIn("signer_id", self.review(cid, expected=2))
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            self.assertEqual(db.execute("select status from candidates where candidate_id=?",
+                                        (cid,)).fetchone()[0], "proposed")
+
     def test_idempotent_apply_and_duplicate_transaction_id_rejected(self):
         self.approved_event(1, "초기자금 100000달러.\n", self.opening())
         self.approved_event(2, "지분 계약 서명.\n", self.sign())

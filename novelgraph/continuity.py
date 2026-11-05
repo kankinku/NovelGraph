@@ -99,6 +99,12 @@ def validate_fact(row: sqlite3.Row) -> dict:
     certainty = item.get("certainty", "confirmed")
     if certainty not in ("confirmed", "uncertain"):
         _reject("certainty must be confirmed or uncertain")
+    amount_relation = item.get("amount_relation", "exact")
+    if kind == "amount":
+        if amount_relation not in ("exact", "approximate", "greater_than", "at_least"):
+            _reject("invalid amount_relation")
+    elif "amount_relation" in item:
+        _reject("amount_relation is only valid for amount assertions")
     context_id = item.get("context_id")
     if context_id is not None:
         _id(context_id, "context_id")
@@ -109,6 +115,7 @@ def validate_fact(row: sqlite3.Row) -> dict:
     normalized = {
         "fact_type": kind, "subject_id": subject, "field": field,
         "currency": currency, "certainty": certainty, "context_id": context_id,
+        "amount_relation": amount_relation if kind == "amount" else None,
         "effective_episode": effective, "source_episode": row["episode"],
         "candidate_id": row["candidate_id"],
         "evidence_start": row["evidence_start"], "evidence_end": row["evidence_end"],
@@ -126,6 +133,8 @@ def validate_fact(row: sqlite3.Row) -> dict:
         normalized.update(from_value=before, to_value=after, reason_code=reason)
     else:
         expected.add("value")
+        if kind == "amount":
+            expected.add("amount_relation")
         normalized["value"] = _normalized_value(field, item.get("value"))
     if set(item) - expected:
         _reject("unsupported keys in continuity payload")
@@ -235,6 +244,18 @@ def check_continuity(db: sqlite3.Connection, work: str, as_of_episode: int) -> d
         group.sort(key=lambda r: (r["effective_episode"], r["source_episode"],
                                   r["evidence_start"], r["candidate_id"]))
         for prior, current in zip(group, group[1:]):
+            if (field == "amount" and
+                (prior["amount_relation"] != "exact" or current["amount_relation"] != "exact") and
+                (prior["value"], prior["amount_relation"]) !=
+                    (current["value"], current["amount_relation"])):
+                findings.append(_finding(
+                    "INSUFFICIENT_EVIDENCE", "QUALIFIED_AMOUNT_COMPARISON",
+                    subject, field, [prior, current],
+                    previous_value=prior["value"], current_value=current["value"],
+                    previous_relation=prior["amount_relation"],
+                    current_relation=current["amount_relation"],
+                    currency=currency))
+                continue
             if prior["value"] == current["value"]:
                 if (field == "action_state" and current["value"] == "completed"
                         and prior["effective_episode"] < current["effective_episode"]):

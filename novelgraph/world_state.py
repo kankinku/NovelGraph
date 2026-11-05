@@ -72,7 +72,7 @@ def _payload(row):
         "contract_refused": {"event_type", "actor_id", "contract_id",
                              "effective_episode"},
         "contract_signed": {"event_type", "actor_id", "contract_id", "company_id",
-                            "equity_pct", "effective_episode"},
+                            "equity_pct", "effective_episode", "signer_id"},
         "equity_transfer": {"event_type", "actor_id", "contract_id", "effective_episode"},
     }[event_type]
     if set(value) - allowed:
@@ -101,6 +101,8 @@ def _payload(row):
     elif event_type == "contract_signed":
         contract = _id(value.get("contract_id"), "contract_id")
         _id(value.get("company_id"), "company_id")
+        if "signer_id" in value:
+            _id(value["signer_id"], "signer_id")
         pct = _decimal(value.get("equity_pct"), "equity_pct")
         if pct > 100:
             _fail("equity_pct must be <= 100")
@@ -326,6 +328,8 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
                 "actor_id": actor, "company_id": event["company_id"],
                 "equity_pct": event["equity_pct"], "status": "signed"
             }
+            if "signer_id" in event:
+                state["contracts"][contract_id]["signer_id"] = event["signer_id"]
         elif kind == "equity_transfer":
             contract = state["contracts"].get(event["contract_id"])
             if not contract or contract["actor_id"] != actor:

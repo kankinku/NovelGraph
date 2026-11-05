@@ -32,11 +32,11 @@
 
 - `entity_type`은 `person`, `organization`, `place`, `contract`, `asset`, `object`를 지원한다.
 - 인물·회사·거래·계약 등 식별자(`*_id`)는 **안정된 ASCII 영문·숫자·밑줄·하이픈 등 현행 검증기가 허용하는 형태**로 유지한다. 이름 자체는 한국어로 적는다.
-- `continuity_fact`의 비교 필드는 `time.date`, `time.weekday`, `location.location_id`, `action.action_state`, `amount.amount`, `contract.current_status`다. 금액은 `currency` 필수, 실제 불확실성이 있으면 `certainty: "uncertain"` 사용.
+- `continuity_fact`의 비교 필드는 `time.date`, `time.weekday`, `location.location_id`, `action.action_state`, `amount.amount`, `contract.current_status`다. 금액은 `currency` 필수, 실제 불확실성이 있으면 `certainty: "uncertain"` 사용. **금액 관측의 정밀도:** `amount_relation` 생략 시 `exact`, 초과는 `greater_than`, 이상은 `at_least`, 약/내외는 `approximate`로 입력한다. `amount_relation`은 `fact_type: amount`에서만 사용하며, 공식 현금 지급 이벤트나 `change`에 붙일 수 없다. 비교 시 관계가 다른 금액을 정확한 동일값·확정 충돌로 단정하지 않는다.
 - 계약 상태 값은 `pending`(기존 호환용), `proposed`, `refused`, `signed`, `transferred`, `cancelled`, `expired`다. **제안과 거절을 실제 계약 서명/해지로 바꾸지 않는다.** `contract_refused`는 이전의 같은 ID 제안이 승인·적용된 경우에만 허용한다. 독립 근거가 없으면 확정 상태 적용 대신 사건 `event` 또는 검토 대상으로 남긴다.
 - `state_change`에서 지원하는 이벤트는 `cash_opening`, `cash_payment`, `cash_receipt`, `contract_proposed`, `contract_refused`, `contract_signed`, `equity_transfer`다. 제안·거절 이벤트는 **계약 상태만** 바꾸며, 실제 현금·지분에는 영향이 없다. 모든 이벤트는 공식 승인 후에만 적용한다. `effective_episode`은 생략 가능하지만 지정하면 소스 회차 이하의 양의 정수여야 한다. 소급 서술이라고 해서 그 사실이 과거에 **알려져 있었던** 것처럼 자동 처리하지 않는다.
-- `cash_payment`/`cash_receipt`는 `actor_id`, 3글자 대문자 `currency`, 문자열 금액 `amount`, 유일한 `transaction_id`, 선택적 `contract_id`가 필요하다. 양도 대상 권리와 실제 지급 주체를 구분한다.
-- `contract_proposed`는 `actor_id`, `contract_id`, `company_id`가 필요하며 계약 제안 사실만 기록한다. `contract_refused`는 `actor_id`, `contract_id`로 기존 제안의 거절을 기록한다. `contract_signed`는 `actor_id`, `contract_id`, `company_id`, 문자열 `equity_pct`가 필요하다. 앞선 제안이 있다면 행위자와 대상 회사가 일치해야 하고 거절 후 같은 계약 ID의 서명은 허용하지 않는다. `equity_transfer`에는 `actor_id`와 `contract_id`가 필요하며, 실제 체결·양도 근거 없이는 생성하지 않는다.
+- `cash_payment`/`cash_receipt`는 `actor_id`, 3글자 대문자 `currency`, **정확한** 문자열 금액 `amount`, 유일한 `transaction_id`, 선택적 `contract_id`가 필요하다. `약 38만 달러`만 확인되는 경우 `cash_payment.amount: "380000"`으로 원장을 확정하지 않는다. 이 경우 금액은 `continuity_fact`의 `amount_relation: "approximate"` 관측으로 기록하고, 지급 사실은 별도의 근거 있는 사건으로 구별한다. 양도 대상 권리와 실제 지급 주체를 구분한다.
+- `contract_proposed`는 `actor_id`, `contract_id`, `company_id`가 필요하며 계약 제안 사실만 기록한다. `contract_refused`는 `actor_id`, `contract_id`로 기존 제안의 거절을 기록한다. `contract_signed`는 `actor_id`, `contract_id`, `company_id`, 문자열 `equity_pct`가 필요하다. **대리 서명이 명확하면 선택적 `signer_id`**를 추가한다. `actor_id`는 경제적 권리 귀속 주체(예: 미성년자 신탁 계좌), `signer_id`는 실제 서명한 법적 대리인이며 양자를 무조건 합치지 않는다. 앞선 제안이 있다면 `actor_id`와 대상 회사가 일치해야 하고 거절 후 같은 계약 ID의 서명은 허용하지 않는다. `equity_transfer`에는 `actor_id`와 `contract_id`가 필요하며, 실제 체결·양도 근거 없이는 생성하지 않는다.
 
 **중요한 호환성 제약:** `event`에 임의로 `certainty`, `stage` 같은 확장 필드를 넣지 않는다. 이 값들은 현재 Graphify 승인 후보 스키마에 존재하지 않는다. 제안/이행 구별은 `event_type`과 별도의 검토 기록으로 표현한다.
 
