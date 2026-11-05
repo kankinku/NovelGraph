@@ -312,6 +312,19 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
     movement_started = set()
     for row in rows:
         _assert_approved_review(db, row["candidate_id"])
+        candidate = db.execute(
+            "SELECT work_id, episode, kind, evidence_start, payload_json "
+            "FROM candidates WHERE candidate_id=?", (row["candidate_id"],)
+        ).fetchone()
+        if (not candidate or candidate["kind"] != "state_change"
+                or candidate["work_id"] != row["work_id"]
+                or candidate["episode"] != row["source_episode"]
+                or candidate["evidence_start"] != row["evidence_start"]
+                or _payload(candidate) != (
+                    row["event_type"], row["event_key"],
+                    row["payload_json"], row["effective_episode"]
+                )):
+            _fail("applied event does not match approved candidate")
         event = json.loads(row["payload_json"])
         kind = row["event_type"]
         actor = event["actor_id"]
