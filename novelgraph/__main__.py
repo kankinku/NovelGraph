@@ -333,6 +333,14 @@ def main(argv: list[str] | None = None) -> int:
     intake.add_argument("--source", required=True)
     intake.add_argument("--input", required=True)
 
+    revision_intake = commands.add_parser(
+        "import-revisions",
+        help="stage provenance-linked proposed corrections without approving originals"
+    )
+    revision_intake.add_argument("--source", required=True)
+    revision_intake.add_argument("--input", required=True)
+    revision_intake.add_argument("--mapping", required=True)
+
     preflight = commands.add_parser(
         "preflight-candidates", help="check evidence and state-event structure without storing candidates"
     )
@@ -467,6 +475,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "import-candidates":
             value = import_candidates(
                 root, _private_file(args.source, root), _private_file(args.input, root)
+            )
+        elif args.command == "import-revisions":
+            from .candidate_revisions import import_revisions
+            value = import_revisions(
+                root, _private_file(args.source, root),
+                _private_file(args.input, root),
+                _private_file(args.mapping, root),
             )
         elif args.command == "preflight-candidates":
             value = preflight_candidates(

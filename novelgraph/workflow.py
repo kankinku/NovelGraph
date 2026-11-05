@@ -35,6 +35,7 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
         "candidate_kind_counts": kinds,
         "model_review": {"supports": 0, "needs_review": 0,
                          "unsupported": 0, "unassessed": 0},
+        "revision_summary": {"superseded_proposed": 0, "active_proposed": 0},
         "approved_state_changes_pending_apply": [],
         "applied_state_change_ids": [],
         "next_actions": ["EXTRACT_AND_PREFLIGHT"],
@@ -87,8 +88,30 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
                 if kind == "state_change":
                     approved_changes.add(cid)
 
+        superseded_ids = set()
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='candidate_revisions'"
+        ).fetchone():
+            revision_rows = db.execute(
+                "SELECT r.old_candidate_id,r.new_candidate_id,"
+                " old.status,new.work_id,new.episode FROM candidate_revisions r"
+                " JOIN candidates old ON old.candidate_id=r.old_candidate_id"
+                " JOIN candidates new ON new.candidate_id=r.new_candidate_id"
+                " WHERE old.work_id=? AND old.episode=?", (work, episode)
+            ).fetchall()
+            for old_id, new_id, old_status, new_work, new_episode in revision_rows:
+                if (old_status != "proposed" or old_id not in proposed_ids
+                        or new_work != work or new_episode != episode):
+                    raise ValueError("candidate revision lineage is inconsistent")
+                superseded_ids.add(old_id)
+        active_ids = proposed_ids - superseded_ids
+        result["revision_summary"] = {
+            "superseded_proposed": len(superseded_ids),
+            "active_proposed": len(active_ids),
+        }
+
         opinions = {}
-        if proposed_ids and db.execute(
+        if active_ids and db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_assessments'"
         ).fetchone():
             for cid, assessment in db.execute(
@@ -99,10 +122,11 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
             ):
                 if assessment not in ("supports", "needs_review", "unsupported"):
                     raise ValueError("unexpected model assessment")
-                opinions[cid] = assessment
+                if cid in active_ids:
+                    opinions[cid] = assessment
         for assessment in opinions.values():
             result["model_review"][assessment] += 1
-        result["model_review"]["unassessed"] = len(proposed_ids) - len(opinions)
+        result["model_review"]["unassessed"] = len(active_ids) - len(opinions)
 
         has_applied = db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='applied_events'"
@@ -132,7 +156,7 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
     if not rows:
         actions.append("EXTRACT_AND_PREFLIGHT")
     else:
-        if counts["proposed"]:
+        if result["revision_summary"]["active_proposed"]:
             actions.append("HUMAN_REVIEW")
         if result["approved_state_changes_pending_apply"]:
             actions.append("APPLY_APPROVED")
