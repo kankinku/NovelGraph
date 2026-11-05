@@ -303,12 +303,16 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
              "cash": {}, "cash_movement": {}, "contracts": {},
              "ownership": {}, "total_assets": None, "event_count": 0}
     db.row_factory = sqlite3.Row
-    rows = db.execute("""SELECT * FROM applied_events
-        WHERE work_id=? AND source_episode<=? AND effective_episode<=?
-        ORDER BY effective_episode, source_episode, evidence_start, candidate_id""",
-        (work_id, as_of_episode if known_at_episode is None else known_at_episode,
-         as_of_episode)
-    ).fetchall()
+    rows = []
+    if db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='applied_events'"
+    ).fetchone():
+        rows = db.execute("""SELECT * FROM applied_events
+            WHERE work_id=? AND source_episode<=? AND effective_episode<=?
+            ORDER BY effective_episode, source_episode, evidence_start, candidate_id""",
+            (work_id, as_of_episode if known_at_episode is None else known_at_episode,
+             as_of_episode)
+        ).fetchall()
     movement_started = set()
     for row in rows:
         _assert_approved_review(db, row["candidate_id"])
@@ -452,5 +456,4 @@ def world_state(db, work_id, as_of_episode):
     _id(work_id, "work_id")
     if type(as_of_episode) is not int or as_of_episode < 1:
         _fail("as_of_episode must be a positive integer")
-    _init_tables(db)
     return _replay(db, work_id, as_of_episode)
