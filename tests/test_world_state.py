@@ -189,6 +189,37 @@ class WorldStateTests(unittest.TestCase):
             self.assertEqual(db.execute("select status from candidates where candidate_id=?",
                                         (cid,)).fetchone()[0], "proposed")
 
+    def test_world_state_rejects_applied_event_payload_drift(self):
+        cid = self.approved_event(1, "초기 현금 100000달러.\n", self.opening())
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            stored = json.loads(db.execute(
+                "SELECT payload_json FROM applied_events WHERE candidate_id=?",
+                (cid,),
+            ).fetchone()[0])
+            stored["amount"] = "900000"
+            db.execute(
+                "UPDATE applied_events SET payload_json=? WHERE candidate_id=?",
+                (json.dumps(stored, sort_keys=True, separators=(",", ":")), cid),
+            )
+        self.assertIn(
+            "applied event does not match approved candidate",
+            self.cli("world-state", "--work-id", "fixture", "--episode", "1",
+                     expected=2),
+        )
+
+    def test_world_state_rejects_applied_event_metadata_drift(self):
+        cid = self.approved_event(1, "초기 현금 100000달러.\n", self.opening())
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            db.execute(
+                "UPDATE applied_events SET event_key='balance:other:USD' "
+                "WHERE candidate_id=?", (cid,),
+            )
+        self.assertIn(
+            "applied event does not match approved candidate",
+            self.cli("world-state", "--work-id", "fixture", "--episode", "1",
+                     expected=2),
+        )
+
     def test_idempotent_apply_and_duplicate_transaction_id_rejected(self):
         self.approved_event(1, "초기자금 100000달러.\n", self.opening())
         self.approved_event(2, "지분 계약 서명.\n", self.sign())
