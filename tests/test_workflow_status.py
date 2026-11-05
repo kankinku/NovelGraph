@@ -169,6 +169,69 @@ class WorkflowStatusTests(unittest.TestCase):
         self.assertEqual(out["next_actions"], ["EXTRACT_AND_PREFLIGHT"])
         self.assertFalse(out["extraction_completeness_verified"])
 
+    def test_model_review_latest_verdict_and_unassessed_proposed(self):
+        source, rows = self.stage(kinds=[
+            ("entity", {"entity_id": "alice", "entity_type": "person", "name": "앨리스"}),
+            ("event", {"actor_id": "alice", "event_type": "planned"}),
+            ("event", {"actor_id": "alice", "event_type": "executed"}),
+            ("continuity_fact", {
+                "fact_type": "amount", "subject_id": "budget",
+                "field": "amount", "currency": "USD", "value": "100",
+            }),
+        ])
+        initial = self.snapshot(source)
+        self.assertEqual(initial["model_review"], {
+            "supports": 0, "needs_review": 0, "unsupported": 0, "unassessed": 4,
+        })
+        for cid, opinion in [
+            (rows[0]["candidate_id"], "supports"),
+            (rows[0]["candidate_id"], "needs_review"),
+            (rows[1]["candidate_id"], "supports"),
+            (rows[2]["candidate_id"], "unsupported"),
+        ]:
+            self.cli("assess-candidate", "--source", str(source),
+                     "--candidate-id", cid, "--assessment", opinion,
+                     "--model-label", "synthetic-model",
+                     "--reason", "synthetic check for opinion update")
+        database = self.root / "novelgraph.sqlite"
+        before = database.read_bytes()
+        current = self.snapshot(source)
+        self.assertEqual(current["model_review"], {
+            "supports": 1, "needs_review": 1, "unsupported": 1, "unassessed": 1,
+        })
+        self.assertEqual(current["candidate_counts"]["proposed"], 4)
+        self.assertEqual(current["next_actions"], ["HUMAN_REVIEW"])
+        self.assertEqual(before, database.read_bytes())
+        self.review(source, rows[3]["candidate_id"], decision="reject")
+        after = self.snapshot(source)
+        self.assertEqual(after["model_review"], {
+            "supports": 1, "needs_review": 1, "unsupported": 1, "unassessed": 0,
+        })
+        self.assertEqual(after["candidate_counts"]["rejected"], 1)
+
+    def test_model_review_does_not_mix_other_work_or_episode(self):
+        first, rows = self.stage()
+        other, other_rows = self.stage(work="work-b", story="다른 작품.\\n")
+        later, later_rows = self.stage(work="work-a", episode=2,
+                                       story="두 번째 회차.\\n")
+        for source, cid in [
+            (other, other_rows[0]["candidate_id"]),
+            (later, later_rows[0]["candidate_id"]),
+        ]:
+            self.cli("assess-candidate", "--source", str(source),
+                     "--candidate-id", cid, "--assessment", "supports",
+                     "--model-label", "synthetic-model",
+                     "--reason", "different work or chapter")
+        self.assertEqual(self.snapshot(first)["model_review"], {
+            "supports": 0, "needs_review": 0, "unsupported": 0, "unassessed": 1,
+        })
+        self.assertEqual(self.snapshot(later, episode=2)["model_review"], {
+            "supports": 1, "needs_review": 0, "unsupported": 0, "unassessed": 0,
+        })
+        self.assertEqual(self.snapshot(other, work="work-b")["model_review"], {
+            "supports": 1, "needs_review": 0, "unsupported": 0, "unassessed": 0,
+        })
+
     def test_repeated_snapshot_is_deterministic_and_byte_read_only(self):
         source, rows = self.stage()
         db = self.root / "novelgraph.sqlite"
