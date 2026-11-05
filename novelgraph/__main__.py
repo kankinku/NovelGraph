@@ -586,9 +586,8 @@ def main(argv: list[str] | None = None) -> int:
                     )
             finally:
                 db.close()
-        elif args.command == "continuity-report":
+        elif args.command in ("continuity-report", "check-continuity"):
             from .continuity import check_continuity
-            from .report import render_continuity_report
             db_path = root / DB_NAME
             if db_path.is_symlink() or not db_path.is_file():
                 _fatal("candidate database does not exist or is not a regular file")
@@ -603,18 +602,12 @@ def main(argv: list[str] | None = None) -> int:
                 ).fetchone()
                 if not registered:
                     _fatal("episode is not registered")
-                value = render_continuity_report(check_continuity(db, work, episode))
-        elif args.command == "check-continuity":
-            from .continuity import check_continuity
-            db_path = root / DB_NAME
-            if not db_path.is_file():
-                _fatal("candidate database does not exist")
-            db = _connect(db_path)
-            try:
-                value = check_continuity(db, _check_work_id(args.work_id),
-                                         _check_episode(args.episode))
-            finally:
-                db.close()
+                result = check_continuity(db, work, episode)
+            if args.command == "continuity-report":
+                from .report import render_continuity_report
+                value = render_continuity_report(result)
+            else:
+                value = result
         else:
             from .world_state import (
                 approve_and_apply, assess_candidate, review_candidate, world_state

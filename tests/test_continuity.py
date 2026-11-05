@@ -482,6 +482,21 @@ class ContinuityTests(unittest.TestCase):
         self.assertEqual(self.check(1), first)
         self.assertEqual(self.check(4)["counts"]["NEEDS_REVIEW"], 1)
 
+    def test_unregistered_episode_is_not_reported_as_zero_conflicts(self):
+        self.fact(1, "대화가 끝났다.\n", "action",
+                  "scene:one", "action_state", "completed", approved=False)
+        database = self.root / "novelgraph.sqlite"
+        before = database.read_bytes()
+        for work, episode in [("novel", 2), ("other-work", 1)]:
+            error = self.cli(
+                "check-continuity", "--work-id", work,
+                "--episode", str(episode), expected=2,
+            )
+            self.assertIn("episode is not registered", error)
+            self.assertEqual(before, database.read_bytes())
+        self.assertEqual(self.check(1)["counts"]["CONFIRMED_CONFLICT"], 0)
+        self.assertEqual(before, database.read_bytes())
+
     def test_check_is_deterministic_and_does_not_modify_candidates(self):
         self.fact(1, "만남은 월요일.\n", "time", "meeting:1", "weekday", "monday")
         self.fact(2, "만남은 화요일.\n", "time", "meeting:1", "weekday",
