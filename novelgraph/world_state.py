@@ -163,6 +163,20 @@ def _candidate(db, candidate_id, sha, text):
     return row
 
 
+def _is_superseded(db, candidate_id):
+    """Fail closed on official reviews of revisions that have been replaced."""
+    present = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table'"
+        " AND name='candidate_revisions'"
+    ).fetchone()
+    if not present:
+        return False
+    return db.execute(
+        "SELECT 1 FROM candidate_revisions WHERE old_candidate_id=?",
+        (candidate_id,),
+    ).fetchone() is not None
+
+
 def review_candidate(db, candidate_id, sha, text, decision, reviewer, reason):
     if decision not in ("approve", "reject"):
         _fail("decision must be approve or reject")
@@ -172,6 +186,8 @@ def review_candidate(db, candidate_id, sha, text, decision, reviewer, reason):
     db.execute("PRAGMA foreign_keys=ON")
     with db:
         row = _candidate(db, candidate_id, sha, text)
+        if _is_superseded(db, candidate_id):
+            _fail("candidate is superseded; review its current revision instead")
         if row["status"] != "proposed":
             _fail("candidate has already been reviewed; reviews are immutable")
         if decision == "approve" and row["kind"] == "state_change":
@@ -381,6 +397,8 @@ def approve_and_apply(db, candidate_id, sha, text):
     db.execute("PRAGMA foreign_keys=ON")
     with db:
         row = _candidate(db, candidate_id, sha, text)
+        if _is_superseded(db, candidate_id):
+            _fail("candidate is superseded and cannot change official state")
         if row["kind"] != "state_change":
             _fail("only state_change candidates can be applied")
         if row["status"] != "approved":
