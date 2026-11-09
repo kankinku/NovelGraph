@@ -125,6 +125,18 @@ class CurrentStateTests(unittest.TestCase):
         self.assertEqual(self.state(3)["facts"]["evelyn"]["stock"]["company-x"]
                          ["story_time"], "1893-11-05")
 
+    def test_repaid_liability_can_become_zero(self):
+        loan = self.stage(1, "에블린의 채무는 500달러다.",
+                          self.event("liability", "loan", "-500", unit="USD"))
+        self.apply(loan)
+        payoff = self.stage(2, "에블린이 전액을 상환해 채무는 0달러가 되었다.",
+                            self.event("liability", "loan", "0", unit="USD"))
+        self.apply(payoff)
+        self.assertEqual(self.state(2)["facts"]["evelyn"]["liability"]["loan"]
+                         ["value"], "0")
+        self.assertEqual(self.state(1)["facts"]["evelyn"]["liability"]["loan"]
+                         ["value"], "-500")
+
     def test_tampered_applied_evidence_fails_closed(self):
         cid = self.stage(1, "에블린의 계좌에 100달러가 있다.",
                          self.event("liquid", "bank", "100", unit="USD"))

@@ -93,11 +93,15 @@ def _payload(row):
                     or unit in ("shares", "percent")):
                 _fail("numeric state requires ISO currency, shares or percent unit")
             if category == "liability":
-                if not isinstance(current, str) or not re.fullmatch(
-                    r"-(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?", current
-                ):
-                    _fail("liability must be a negative decimal string")
-                value["value"] = _number(-_decimal(current[1:], "liability", can_be_zero=False))
+                if not isinstance(current, str):
+                    _fail("liability must be a nonpositive decimal string")
+                if current.startswith("-"):
+                    amount = -_decimal(current[1:], "liability", can_be_zero=False)
+                else:
+                    amount = _decimal(current, "liability", can_be_zero=True)
+                    if amount:
+                        _fail("liability must be a nonpositive decimal string")
+                value["value"] = _number(amount)
             else:
                 value["value"] = _number(_decimal(current, "state value", can_be_zero=True))
             if "relation_status" in value:

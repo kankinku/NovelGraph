@@ -98,7 +98,7 @@ cd /shared/NovelGraph
 기존 사건 유형에 state_set을 추가한다. 예전 문서에 기록된 유형 목록은 당시 기준으로 유지한다.
 
 - 필수: event_type=state_set, actor_id, category, item_id, value.
-- numeric 카테고리(liquid/stock/bond/real_estate/liability)는 unit 필수. 금액은 소수 문자열, liability는 음수. 같은 자산의 주수와 평가금액은 item_id를 분리한다.
+- numeric 카테고리(liquid/stock/bond/real_estate/liability)는 unit 필수. 금액은 소수 문자열, liability는 음수이며 완전 상환 시 0을 허용한다. 같은 자산의 주수와 평가금액은 item_id를 분리한다.
 - time은 actor_id=작품ID, item_id=current, YYYY-MM-DD 날짜만. 작중 시간 경과가 확인되지 않으면 갱신하지 않는다.
 - relationship은 relation_status=active/ended; knowledge는 known/not_known/unverified; thread는 open/resolved/cancelled.
 - 대사·소문·추측·예정된 미래는 현재 확정 사실을 만드는 state_set으로 제출하지 않는다.
