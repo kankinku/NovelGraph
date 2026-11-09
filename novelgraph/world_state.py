@@ -5,6 +5,7 @@ An applied event is an immutable fact; the visible state is always replayed.
 """
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -16,8 +17,10 @@ MONEY = re.compile(r"^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$")
 CURRENCY = re.compile(r"^[A-Z]{3}$")
 EVENT_TYPES = {
     "cash_opening", "contract_proposed", "contract_refused", "contract_signed",
-    "cash_payment", "cash_receipt", "equity_transfer"
+    "cash_payment", "cash_receipt", "equity_transfer", "state_set"
 }
+NUMBER_CATEGORIES = {"liquid", "stock", "bond", "real_estate", "liability"}
+TEXT_CATEGORIES = {"relationship", "knowledge", "thread", "narrative", "status", "time"}
 
 
 def _fail(message: str):
@@ -74,11 +77,58 @@ def _payload(row):
         "contract_signed": {"event_type", "actor_id", "contract_id", "company_id",
                             "equity_pct", "effective_episode", "signer_id"},
         "equity_transfer": {"event_type", "actor_id", "contract_id", "effective_episode"},
+        "state_set": {"event_type", "actor_id", "category", "item_id", "value",
+                      "unit", "relation_status", "effective_episode"},
     }[event_type]
     if set(value) - allowed:
         _fail(f"unexpected fields for {event_type}")
     value = {**value, "effective_episode": effective_episode}
-    if event_type.startswith("cash_"):
+    if event_type == "state_set":
+        category = value.get("category")
+        item_id = _id(value.get("item_id"), "item_id")
+        current = value.get("value")
+        if category in NUMBER_CATEGORIES:
+            unit = value.get("unit")
+            if not isinstance(unit, str) or not (CURRENCY.fullmatch(unit)
+                    or unit in ("shares", "percent")):
+                _fail("numeric state requires ISO currency, shares or percent unit")
+            if category == "liability":
+                if not isinstance(current, str) or not re.fullmatch(
+                    r"-(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?", current
+                ):
+                    _fail("liability must be a negative decimal string")
+                value["value"] = _number(-_decimal(current[1:], "liability", can_be_zero=False))
+            else:
+                value["value"] = _number(_decimal(current, "state value", can_be_zero=True))
+            if "relation_status" in value:
+                _fail("only relationships have a relation_status")
+        elif category in TEXT_CATEGORIES:
+            if "unit" in value:
+                _fail("only numeric state has a unit")
+            if not isinstance(current, str) or not current.strip() or len(current) > 500:
+                _fail("text state must be a nonempty string of at most 500 characters")
+            if category == "relationship":
+                if value.get("relation_status") not in ("active", "ended"):
+                    _fail("relationship requires active or ended relation_status")
+            elif "relation_status" in value:
+                _fail("only relationships have a relation_status")
+            if category == "time":
+                if actor != row["work_id"] or item_id != "current":
+                    _fail("time state must update current time of the work")
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", current):
+                    _fail("time must use YYYY-MM-DD")
+                try:
+                    date.fromisoformat(current)
+                except ValueError:
+                    _fail("invalid time date")
+            elif category == "knowledge" and current not in ("known", "not_known", "unverified"):
+                _fail("knowledge must be known, not_known or unverified")
+            elif category == "thread" and current not in ("open", "resolved", "cancelled"):
+                _fail("thread must be open, resolved or cancelled")
+        else:
+            _fail("unsupported state category")
+        key = f"state:{row['candidate_id']}"
+    elif event_type.startswith("cash_"):
         currency = value.get("currency")
         if not isinstance(currency, str) or not CURRENCY.fullmatch(currency):
             _fail("currency must be a three-letter uppercase ISO currency code")
@@ -108,7 +158,7 @@ def _payload(row):
             _fail("equity_pct must be <= 100")
         value["equity_pct"] = _number(pct)
         key = f"contract:{contract}"
-    else:
+    elif event_type != "state_set":
         contract = _id(value.get("contract_id"), "contract_id")
         key = f"transfer:{contract}"
     return event_type, key, json.dumps(
@@ -301,7 +351,8 @@ def audit_reviews(db, work_id, episode):
 def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
     state = {"work_id": work_id, "as_of_episode": as_of_episode,
              "cash": {}, "cash_movement": {}, "contracts": {},
-             "ownership": {}, "total_assets": None, "event_count": 0}
+             "ownership": {}, "total_assets": None, "event_count": 0,
+             "facts": {}, "current_time": None}
     db.row_factory = sqlite3.Row
     rows = []
     if db.execute(
@@ -317,8 +368,9 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
     for row in rows:
         _assert_approved_review(db, row["candidate_id"])
         candidate = db.execute(
-            "SELECT work_id, episode, kind, evidence_start, payload_json "
-            "FROM candidates WHERE candidate_id=?", (row["candidate_id"],)
+            """SELECT c.*, e.source_sha256 FROM candidates c
+               JOIN episodes e ON e.work_id=c.work_id AND e.episode=c.episode
+               WHERE c.candidate_id=?""", (row["candidate_id"],)
         ).fetchone()
         if (not candidate or candidate["kind"] != "state_change"
                 or candidate["work_id"] != row["work_id"]
@@ -332,7 +384,30 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
         event = json.loads(row["payload_json"])
         kind = row["event_type"]
         actor = event["actor_id"]
-        if kind == "contract_proposed":
+        if kind == "state_set":
+            category, item_id = event["category"], event["item_id"]
+            result = {
+                "value": event["value"], "source_episode": row["source_episode"],
+                "effective_episode": row["effective_episode"],
+                "candidate_id": row["candidate_id"], "certainty": "approved",
+                "evidence": {
+                    "text": candidate["evidence_text"],
+                    "start": candidate["evidence_start"],
+                    "end": candidate["evidence_end"],
+                    "source_sha256": candidate["source_sha256"],
+                },
+            }
+            if "unit" in event:
+                result["unit"] = event["unit"]
+            if "relation_status" in event:
+                result["relation_status"] = event["relation_status"]
+            if category == "time":
+                previous = state["current_time"]
+                if previous is not None and result["value"] < previous["value"]:
+                    _fail("current time cannot move backwards")
+                state["current_time"] = result
+            state["facts"].setdefault(actor, {}).setdefault(category, {})[item_id] = result
+        elif kind == "contract_proposed":
             contract = event["contract_id"]
             if contract in state["contracts"]:
                 _fail("contract has already been proposed or signed")
