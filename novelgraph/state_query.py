@@ -117,6 +117,16 @@ def _contracts(ledger: list[sqlite3.Row], subject_id: str, contracts: dict) -> d
 def _totals(data: dict, ownership: dict) -> dict:
     assets, debts = {}, {}
     unpriced = bool(ownership)
+    # Cash is currency-aggregated; an untagged liquid item may refer to it.
+    # Omit a potentially duplicated currency total rather than invent a sum.
+    cash_currencies = set(data.get("cash", {}))
+    ambiguous = {
+        entry["unit"]
+        for entry in data.get("liquid", {}).values()
+        if entry.get("unit") in cash_currencies
+        and entry.get("separate_from_cash") is not True
+    }
+    unpriced = unpriced or bool(ambiguous)
     for category, entries in data.items():
         if category not in (*ASSET_TYPES, "liability", "cash"):
             continue
@@ -128,15 +138,18 @@ def _totals(data: dict, ownership: dict) -> dict:
             if unit is None or len(unit) != 3 or not unit.isupper():
                 unpriced = True
                 continue
+            if category != "liability" and unit in ambiguous:
+                continue
             bucket = debts if category == "liability" else assets
             bucket[unit] = bucket.get(unit, Decimal(0)) + Decimal(value)
     net = {currency: assets.get(currency, Decimal(0)) + debts.get(currency, Decimal(0))
-           for currency in assets.keys() | debts.keys()}
+           for currency in (assets.keys() | debts.keys()) - ambiguous}
     return {
         "valued_assets_by_currency": {k: _number(v) for k, v in sorted(assets.items())},
         "liabilities_by_currency": {k: _number(v) for k, v in sorted(debts.items())},
         "net_valued_by_currency": {k: _number(v) for k, v in sorted(net.items())},
         "has_unpriced_holdings": unpriced,
+        "ambiguous_cash_liquid_currencies": sorted(ambiguous),
         "note": "known values only; unmentioned assets are not assumed absent",
     }
 

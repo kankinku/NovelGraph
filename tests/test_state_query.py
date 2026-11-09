@@ -116,6 +116,48 @@ class StateQueryTests(unittest.TestCase):
         self.assertEqual(net["totals"]["net_valued_by_currency"]["USD"], "4700")
         self.assertTrue(net["totals"]["has_unpriced_holdings"])
 
+    def test_cash_and_untagged_liquid_same_currency_do_not_produce_false_total(self):
+        self.record(1, "에블린의 현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        self.record(2, "에블린의 은행 잔액은 2000달러다.",
+                    self.change("liquid", "bank", "2000", unit="USD"))
+        result = self.query("assets", episode=2)
+        self.assertEqual(result["data"]["cash"]["USD"]["value"], "2000")
+        self.assertEqual(result["data"]["liquid"]["bank"]["value"], "2000")
+        self.assertEqual(result["totals"]["ambiguous_cash_liquid_currencies"], ["USD"])
+        self.assertNotIn("USD", result["totals"]["valued_assets_by_currency"])
+        self.assertTrue(result["totals"]["has_unpriced_holdings"])
+
+    def test_explicitly_distinct_liquid_asset_counts_alongside_cash(self):
+        self.record(1, "현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        self.record(2, "현금과 별개로 단기 예금 500달러를 보유한다.",
+                    self.change("liquid", "term_deposit", "500", unit="USD",
+                                separate_from_cash=True))
+        result = self.query("assets", episode=2)
+        self.assertEqual(result["totals"]["valued_assets_by_currency"]["USD"], "2500")
+        self.assertEqual(result["totals"]["ambiguous_cash_liquid_currencies"], [])
+        self.assertEqual(result["data"]["liquid"]["term_deposit"]["separate_from_cash"], True)
+
+    def test_separate_from_cash_not_allowed_on_stock_or_false_liquid_flag(self):
+        for episode, payload in (
+            (1, self.change("stock", "company", "500", unit="USD",
+                            separate_from_cash=True)),
+            (2, self.change("liquid", "bank", "500", unit="USD",
+                            separate_from_cash=False)),
+        ):
+            with self.subTest(episode=episode):
+                candidate_id = self.record(episode, "상태 변경 후보.",
+                                           payload, apply=False)
+                error = self.cli(
+                    "review-candidate", "--source", str(self.root / f"{episode}.txt"),
+                    "--candidate-id", candidate_id, "--decision", "approve",
+                    "--reviewer", "human", "--reason", "checked",
+                    expected=2)
+                self.assertIn("separate_from_cash", error)
+
     def test_cash_history_distinguishes_opening_and_outgoing_payment(self):
         self.record(1, "계좌의 현금은 2000달러다.", {
             "event_type": "cash_opening", "actor_id": "evelyn",

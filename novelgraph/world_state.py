@@ -78,7 +78,7 @@ def _payload(row):
                             "equity_pct", "effective_episode", "signer_id"},
         "equity_transfer": {"event_type", "actor_id", "contract_id", "effective_episode"},
         "state_set": {"event_type", "actor_id", "category", "item_id", "value",
-                      "unit", "relation_status", "effective_episode"},
+                      "unit", "relation_status", "effective_episode", "separate_from_cash"},
     }[event_type]
     if set(value) - allowed:
         _fail(f"unexpected fields for {event_type}")
@@ -87,6 +87,9 @@ def _payload(row):
         category = value.get("category")
         item_id = _id(value.get("item_id"), "item_id")
         current = value.get("value")
+        if "separate_from_cash" in value and (
+                category != "liquid" or value["separate_from_cash"] is not True):
+            _fail("separate_from_cash requires category liquid and literal true")
         if category in NUMBER_CATEGORIES:
             unit = value.get("unit")
             if not isinstance(unit, str) or not (CURRENCY.fullmatch(unit)
@@ -413,6 +416,8 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
             }
             if "unit" in event:
                 result["unit"] = event["unit"]
+            if "separate_from_cash" in event:
+                result["separate_from_cash"] = event["separate_from_cash"]
             if "relation_status" in event:
                 result["relation_status"] = event["relation_status"]
             if category == "time":
