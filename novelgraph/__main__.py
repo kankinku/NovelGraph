@@ -693,6 +693,8 @@ def main(argv: list[str] | None = None) -> int:
             print(value, end="")
         else:
             print(json.dumps(value, ensure_ascii=False))
+        if args.command == "draft-gate" and value["status"] == "REJECTED":
+            return 3  # a shell pipeline must not treat a rejected draft as success
         return 0
     except (OSError, ValueError, UnicodeError, sqlite3.Error) as exc:
         print(f"novelgraph: {exc}", file=sys.stderr)

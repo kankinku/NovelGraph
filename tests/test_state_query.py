@@ -183,9 +183,18 @@ class StateQueryTests(unittest.TestCase):
             "candidates": [{"kind": "state_change", "payload": payload,
                             "evidence": {"start": 0, "end": len(quote), "text": quote}}],
         }, ensure_ascii=False), encoding="utf-8")
-        return self.cli("draft-gate", "--source", str(source), "--input",
-                        str(candidate_file), "--as-of-episode", str(as_of),
-                        expected=expected)
+        proc = subprocess.run([
+            sys.executable, "-m", "novelgraph", "--data-root", str(self.root),
+            "draft-gate", "--source", str(source), "--input", str(candidate_file),
+            "--as-of-episode", str(as_of),
+        ], capture_output=True, text=True, timeout=15)
+        if expected == 2:
+            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+            return proc.stderr
+        response = json.loads(proc.stdout)
+        required_exit = 3 if response["status"] == "REJECTED" else 0
+        self.assertEqual(proc.returncode, required_exit, proc.stderr + proc.stdout)
+        return response
 
     def test_draft_gate_rejects_overdraw_without_modifying_official_database(self):
         self.record(1, "현금은 2000달러다.", {
