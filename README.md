@@ -12,6 +12,28 @@
 4. 시간·행동·위치·수치·계약 관련 모순과 근거 부족을 검출한다.
 5. ChatGPT와 Moon MCP를 통해 원고 입력부터 결과 조회까지 수행한다.
 
+## 현재 상태 조회 (2026-11-09 기능 브랜치)
+
+집필 LLM이 요청한 작품의 **현재 상태만** 반환한다. 자산/주식/현금/관계/시간 등을 분리하고, 출처 회차와 원문 근거를 첨부한다. 과거 변경 내역은 명시적 요청일 때만 반환한다.
+
+~~~bash
+PY=/shared/NovelGraph/.venv/bin/python
+DATA=/shared/NovelGraph-data
+
+$PY -m novelgraph --data-root "$DATA" query-state --work-id novel --episode 10 --subject evelyn --scope assets
+$PY -m novelgraph --data-root "$DATA" query-state --work-id novel --episode 10 --subject evelyn --scope stock --history
+~~~
+
+LLM의 JSON 후보(state_change 종류 중 state_set)의 예시:
+
+~~~json
+{"event_type":"state_set","actor_id":"evelyn","category":"stock","item_id":"company-a:valuation","value":"3000","unit":"USD"}
+~~~
+
+기존 후보 스키마에 정확한 원문 범위(evidence)와 SHA가 필요하다. 후보는 기존 검토·승인·적용 과정을 거쳐야 현재 DB에 반영되며, 검증되지 않은 후보를 자동 사실로 승격하지 않는다. 실제 원고를 분석한 정확도는 별도 검증이 필요하다.
+
+설계: [현재 상태 설계](docs/superpowers/specs/2026-11-09-novelgraph-current-state-design.md) · [개발 계획](docs/superpowers/plans/2026-11-09-novelgraph-current-state.md)
+
 ## 범위에서 제외
 
 - 자동 집필 및 다음 화 생성

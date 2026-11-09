@@ -60,8 +60,7 @@ def _ledger(db: sqlite3.Connection, work_id: str, episode: int) -> list[sqlite3.
     ).fetchall()
 
 
-def _cash(db: sqlite3.Connection, ledger: list[sqlite3.Row],
-          subject_id: str, balances: dict) -> dict:
+def _cash(ledger: list[sqlite3.Row], subject_id: str, balances: dict) -> dict:
     latest = {}
     for row in ledger:
         if row["event_type"] not in ("cash_opening", "cash_payment", "cash_receipt"):
@@ -159,7 +158,7 @@ def query_state(db: sqlite3.Connection, work_id: str, episode: int,
     ledger = _ledger(db, work_id, episode)
     include_cash = scope in ("cash", "assets", "net_assets", "liquid_assets")
     if include_cash:
-        cash = _cash(db, ledger, subject_id, snapshot["cash"].get(subject_id, {}))
+        cash = _cash(ledger, subject_id, snapshot["cash"].get(subject_id, {}))
         if cash:
             data["cash"] = cash
     if scope == "time" and snapshot["current_time"] is not None:
@@ -198,9 +197,13 @@ def query_state(db: sqlite3.Connection, work_id: str, episode: int,
                     })
             elif (include_cash and row["event_type"].startswith("cash_")
                   and event["actor_id"] == subject_id):
+                signed = (-Decimal(event["amount"])
+                          if row["event_type"] == "cash_payment"
+                          else Decimal(event["amount"]))
                 selected.append({
+                    "event_type": row["event_type"],
                     "category": "cash", "item_id": event["currency"],
-                    "value": event["amount"], **_evidence(row),
+                    "value": _number(signed), **_evidence(row),
                 })
         result["history"] = selected
     return result

@@ -92,3 +92,15 @@ cd /shared/NovelGraph
 - 신규 LLM API, MCP 서버, DB, 외부 의존성 도입 없음.
 
 관련 문서: [전체 계획](superpowers/plans/2026-11-05-novelgraph-production-plan.md), [모델 71건 예비 검토](22-model-71-semantic-triage-2026-11-05.md).
+
+## 2026-11-09 상태 사건 확장
+
+기존 사건 유형에 state_set을 추가한다. 예전 문서에 기록된 유형 목록은 당시 기준으로 유지한다.
+
+- 필수: event_type=state_set, actor_id, category, item_id, value.
+- numeric 카테고리(liquid/stock/bond/real_estate/liability)는 unit 필수. 금액은 소수 문자열, liability는 음수. 같은 자산의 주수와 평가금액은 item_id를 분리한다.
+- time은 actor_id=작품ID, item_id=current, YYYY-MM-DD 날짜만. 작중 시간 경과가 확인되지 않으면 갱신하지 않는다.
+- relationship은 relation_status=active/ended; knowledge는 known/not_known/unverified; thread는 open/resolved/cancelled.
+- 대사·소문·추측·예정된 미래는 현재 확정 사실을 만드는 state_set으로 제출하지 않는다.
+- preflight 통과는 의미가 정확하다는 증명이 아니므로, 승인되지 않은 후보는 상태에 반영하지 않는다.
+- query-state 명령은 범위에 맞는 현재 상태만 반환, 변경 이력은 --history로 명시해야 한다.

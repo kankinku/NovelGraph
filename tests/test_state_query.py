@@ -116,6 +116,30 @@ class StateQueryTests(unittest.TestCase):
         self.assertEqual(net["totals"]["net_valued_by_currency"]["USD"], "4700")
         self.assertTrue(net["totals"]["has_unpriced_holdings"])
 
+    def test_cash_history_distinguishes_opening_and_outgoing_payment(self):
+        self.record(1, "계좌의 현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        self.record(2, "500달러를 실제 지급했다.", {
+            "event_type": "cash_payment", "actor_id": "evelyn",
+            "currency": "USD", "amount": "500", "transaction_id": "tx-01"})
+        current = self.query("cash", episode=2)
+        self.assertEqual(current["data"]["cash"]["USD"]["value"], "1500")
+        details = self.query("cash", episode=2, history=True)["history"]
+        self.assertEqual([(x["event_type"], x["value"]) for x in details],
+                         [("cash_opening", "2000"), ("cash_payment", "-500")])
+
+    def test_corrupt_candidate_evidence_blocks_read_only_query(self):
+        self.record(1, "계좌의 현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            db.execute("UPDATE candidates SET evidence_text='X' || evidence_text")
+        failure = self.cli(
+            "query-state", "--work-id", "fixture", "--episode", "1",
+            "--subject", "evelyn", "--scope", "cash", expected=2)
+        self.assertIn("integrity", failure.lower())
+
     def test_unapplied_candidates_are_excluded_and_query_is_read_only(self):
         self.record(1, "현금은 2000달러다.", {
             "event_type": "cash_opening", "actor_id": "evelyn",
