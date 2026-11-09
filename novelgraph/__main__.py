@@ -407,6 +407,14 @@ def main(argv: list[str] | None = None) -> int:
     state_cmd = commands.add_parser("world-state", help="replay events as known at an episode")
     state_cmd.add_argument("--work-id", required=True)
     state_cmd.add_argument("--episode", required=True, type=int)
+    query_cmd = commands.add_parser(
+        "query-state", help="read only the requested current-state branch"
+    )
+    query_cmd.add_argument("--work-id", required=True)
+    query_cmd.add_argument("--episode", required=True, type=int)
+    query_cmd.add_argument("--subject", required=True)
+    query_cmd.add_argument("--scope", required=True)
+    query_cmd.add_argument("--history", action="store_true")
     continuity = commands.add_parser(
         "check-continuity", help="compare approved narrative facts with source references"
     )
@@ -608,6 +616,23 @@ def main(argv: list[str] | None = None) -> int:
                 value = render_continuity_report(result)
             else:
                 value = result
+        elif args.command == "query-state":
+            from .state_query import query_state
+            db_path = root / DB_NAME
+            if db_path.is_symlink() or not db_path.is_file():
+                _fatal("candidate database does not exist or is not a regular file")
+            if db_path.stat().st_mode & 0o077:
+                _fatal("candidate database must be private")
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+                work = _check_work_id(args.work_id)
+                episode = _check_episode(args.episode)
+                if not db.execute(
+                    "SELECT 1 FROM episodes WHERE work_id=? AND episode=?",
+                    (work, episode),
+                ).fetchone():
+                    _fatal("episode is not registered")
+                value = query_state(db, work, episode, args.subject, args.scope,
+                                    history=args.history)
         else:
             from .world_state import (
                 approve_and_apply, assess_candidate, review_candidate, world_state
