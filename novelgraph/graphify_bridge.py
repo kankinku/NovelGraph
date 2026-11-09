@@ -9,13 +9,14 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+from urllib.parse import quote
 
 import networkx as nx
 from graphify.export import to_json
 from graphify.paths import load_node_link_graph
 
 from .continuity import validate_fact
-from .world_state import _assert_approved_review, _id, _payload
+from .world_state import _assert_approved_review, _id, _payload, _replay
 
 ENTITY_TYPES = {"person", "organization", "place", "contract", "asset", "object"}
 GRAPH_SCHEMA = 1
@@ -211,6 +212,35 @@ def _add_applied(g: nx.DiGraph, row: sqlite3.Row) -> None:
     _supported(g, row, event_id)
 
 
+def _add_current_states(g: nx.DiGraph, snapshot: dict,
+                        applied: list[sqlite3.Row]) -> None:
+    """Add latest state nodes; events and evidence stay immutable."""
+    source_rows = {row["candidate_id"]: row for row in applied}
+    for actor, categories in snapshot["facts"].items():
+        owner = _ref(g, actor)
+        for category, entries in categories.items():
+            for item_id, fact in entries.items():
+                row = source_rows[fact["candidate_id"]]
+                node_id = "state:" + ":".join(
+                    quote(part, safe="") for part in (actor, category, item_id)
+                )
+                attrs = {
+                    "category": category, "item_id": item_id,
+                    "actor_id": actor, "value": fact["value"],
+                    "source_episode": fact["source_episode"],
+                    "effective_episode": fact["effective_episode"],
+                    "candidate_id": fact["candidate_id"],
+                }
+                for field in ("unit", "relation_status"):
+                    if field in fact:
+                        attrs[field] = fact[field]
+                _node(g, node_id, f"{category}:{item_id}", "current_state", **attrs)
+                _edge(g, owner, node_id, "has_current_state", row)
+                _edge(g, node_id, f"event:{fact['candidate_id']}", "last_changed_by", row)
+                if category in ("stock", "bond", "real_estate", "relationship"):
+                    _edge(g, node_id, _ref(g, item_id), "refers_to", row)
+
+
 def _digest(g: nx.DiGraph) -> str:
     # Deliberately exclude Graphify's generated norm_label/community metadata.
     nodes = [(str(node_id), attrs) for node_id, attrs in g.nodes(data=True)]
@@ -267,6 +297,7 @@ def project_graph(db: sqlite3.Connection, work_id: str, episode: int) -> nx.DiGr
             _add_approved(graph, row)
     for row in applied:
         _add_applied(graph, row)
+    _add_current_states(graph, _replay(db, work_id, episode), applied)
     graph.graph["projection_sha256"] = _digest(graph)
     return graph
 

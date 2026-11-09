@@ -81,6 +81,19 @@ class CandidatePreflightTests(unittest.TestCase):
         self.assertEqual(result["continuity_fact_payloads_checked"], 1)
         self.assertFalse((self.root / "novelgraph.sqlite").exists())
 
+    def test_current_time_preflight_accepts_work_scoped_state_without_writing(self):
+        quote = "현재 시각은 1893년 11월 5일이다."
+        self.story += quote + "\n"
+        self.source.write_text(self.story, encoding="utf-8")
+        event = self.candidate(quote, kind="state_change", payload={
+            "event_type": "state_set", "actor_id": "synthetic",
+            "category": "time", "item_id": "current", "value": "1893-11-05",
+        })
+        result = self.run_cli([event])
+        self.assertEqual(result["state_change_payloads_checked"], 1)
+        self.assertTrue(result["read_only"])
+        self.assertFalse((self.root / "novelgraph.sqlite").exists())
+
     def test_invalid_continuity_status_is_rejected(self):
         fact = self.candidate(
             "상대가 거절해 계약서를 서명하지 않았다.",
