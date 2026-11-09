@@ -171,6 +171,106 @@ class StateQueryTests(unittest.TestCase):
         self.assertEqual([(x["event_type"], x["value"]) for x in details],
                          [("cash_opening", "2000"), ("cash_payment", "-500")])
 
+    def run_draft_gate(self, episode, quote, payload, *, as_of=1, bad_hash=False,
+                       expected=0):
+        source = self.root / f"draft-{episode}.txt"
+        source.write_text(quote, encoding="utf-8")
+        candidate_file = self.root / "draft-candidates.json"
+        candidate_file.write_text(json.dumps({
+            "schema_version": 1, "work_id": "fixture", "episode": episode,
+            "source_sha256": ("a" * 64 if bad_hash else
+                              hashlib.sha256(source.read_bytes()).hexdigest()),
+            "candidates": [{"kind": "state_change", "payload": payload,
+                            "evidence": {"start": 0, "end": len(quote), "text": quote}}],
+        }, ensure_ascii=False), encoding="utf-8")
+        return self.cli("draft-gate", "--source", str(source), "--input",
+                        str(candidate_file), "--as-of-episode", str(as_of),
+                        expected=expected)
+
+    def test_draft_gate_rejects_overdraw_without_modifying_official_database(self):
+        self.record(1, "현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        db_path = self.root / "novelgraph.sqlite"
+        before = db_path.read_bytes()
+        result = self.run_draft_gate(2, "보유 현금에서 2500달러를 지급했다.", {
+            "event_type": "cash_payment", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2500", "transaction_id": "tx-overdraw"})
+        self.assertEqual(result["status"], "REJECTED")
+        self.assertTrue(result["blocking"])
+        self.assertEqual(result["findings"][0]["reason_code"], "known_cash_overdraft")
+        self.assertTrue(result["requesting_ai_review_required"])
+        self.assertEqual(result["official_world_state_mutations"], 0)
+        self.assertNotIn("보유 현금", json.dumps(result, ensure_ascii=False))
+        self.assertEqual(db_path.read_bytes(), before)
+
+    def test_draft_gate_rejects_backward_current_date(self):
+        self.record(1, "현재 날짜는 1893년 11월 8일이다.",
+                    self.change("time", "current", "1893-11-08", actor="fixture"))
+        result = self.run_draft_gate(2, "현재 날짜는 11월 7일로 되돌아갔다.",
+                                     self.change("time", "current", "1893-11-07",
+                                                 actor="fixture"))
+        self.assertEqual(result["status"], "REJECTED")
+        self.assertEqual(result["findings"][0]["reason_code"], "time_backwards")
+
+    def test_draft_gate_nonconflicting_candidate_still_requires_review(self):
+        self.record(1, "현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        db_path = self.root / "novelgraph.sqlite"
+        before = db_path.read_bytes()
+        result = self.run_draft_gate(2, "현금 중 500달러를 사용했다.", {
+            "event_type": "cash_payment", "actor_id": "evelyn",
+            "currency": "USD", "amount": "500", "transaction_id": "tx-ok"})
+        self.assertEqual(result["status"], "NEEDS_REVIEW")
+        self.assertTrue(result["blocking"])
+        self.assertEqual(result["findings"], [])
+        self.assertEqual(db_path.read_bytes(), before)
+        self.assertEqual(self.query("cash", episode=1)["data"]["cash"]["USD"]["value"],
+                         "2000")
+
+    def test_draft_gate_rejects_repeat_contract_signing(self):
+        contract = {"event_type": "contract_signed", "actor_id": "evelyn",
+                    "contract_id": "deal-a", "company_id": "aurora", "equity_pct": "15"}
+        self.record(1, "오로라 지분 계약에 서명했다.", contract)
+        result = self.run_draft_gate(2, "같은 계약을 또 체결했다.", contract)
+        self.assertEqual(result["status"], "REJECTED")
+        self.assertEqual(result["findings"][0]["reason_code"],
+                         "contract_already_finalized")
+
+    def test_draft_gate_rejects_transfer_without_signed_contract(self):
+        self.record(1, "현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        result = self.run_draft_gate(2, "서명하지 않은 계약의 지분을 이전했다.", {
+            "event_type": "equity_transfer", "actor_id": "evelyn",
+            "contract_id": "unknown-deal"})
+        self.assertEqual(result["status"], "REJECTED")
+        self.assertEqual(result["findings"][0]["reason_code"],
+                         "equity_transfer_without_signed_contract")
+
+    def test_draft_gate_rejects_contract_payment_without_signed_contract(self):
+        self.record(1, "현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        result = self.run_draft_gate(2, "미체결 계약을 이유로 200달러를 지급했다.", {
+            "event_type": "cash_payment", "actor_id": "evelyn",
+            "currency": "USD", "amount": "200", "transaction_id": "tx-deal",
+            "contract_id": "unknown-deal"})
+        self.assertEqual(result["status"], "REJECTED")
+        self.assertEqual(result["findings"][0]["reason_code"],
+                         "cash_transaction_without_signed_contract")
+
+    def test_draft_gate_checks_source_hash_and_adjacent_episode(self):
+        self.record(1, "현금은 2000달러다.", {
+            "event_type": "cash_opening", "actor_id": "evelyn",
+            "currency": "USD", "amount": "2000"})
+        payload = self.change("stock", "company", "100", unit="shares")
+        self.assertIn("source_sha256", self.run_draft_gate(
+            2, "주식 100주를 취득했다.", payload, bad_hash=True, expected=2))
+        self.assertIn("next episode", self.run_draft_gate(
+            3, "주식 100주를 취득했다.", payload, expected=2))
+
     def test_corrupt_candidate_evidence_blocks_read_only_query(self):
         self.record(1, "계좌의 현금은 2000달러다.", {
             "event_type": "cash_opening", "actor_id": "evelyn",

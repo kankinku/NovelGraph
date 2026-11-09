@@ -193,7 +193,8 @@ def preflight_candidates(root: Path, source: Path, input_file: Path) -> dict:
     for record in records:
         counts[record[3]] += 1
         if record[3] == "state_change":
-            _payload({"payload_json": record[4], "episode": episode})
+            _payload({"payload_json": record[4], "episode": episode,
+                      "work_id": work, "candidate_id": record[0]})
         elif record[3] == "continuity_fact":
             validate_fact({
                 "payload_json": record[4], "episode": episode,
@@ -415,6 +416,12 @@ def main(argv: list[str] | None = None) -> int:
     query_cmd.add_argument("--subject", required=True)
     query_cmd.add_argument("--scope", required=True)
     query_cmd.add_argument("--history", action="store_true")
+    draft_cmd = commands.add_parser(
+        "draft-gate", help="read-only deterministic conflicts against approved current state"
+    )
+    draft_cmd.add_argument("--source", required=True)
+    draft_cmd.add_argument("--input", required=True)
+    draft_cmd.add_argument("--as-of-episode", required=True, type=int)
     continuity = commands.add_parser(
         "check-continuity", help="compare approved narrative facts with source references"
     )
@@ -616,6 +623,26 @@ def main(argv: list[str] | None = None) -> int:
                 value = render_continuity_report(result)
             else:
                 value = result
+        elif args.command == "draft-gate":
+            from .draft_gate import check_draft
+            text, digest, _ = _source(_private_file(args.source, root))
+            work, episode, records = _valid_candidates(
+                _read_json(_private_file(args.input, root)), text, digest
+            )
+            db_path = root / DB_NAME
+            if db_path.is_symlink() or not db_path.is_file():
+                _fatal("candidate database does not exist or is not a regular file")
+            if db_path.stat().st_mode & 0o077:
+                _fatal("candidate database must be private")
+            as_of = _check_episode(args.as_of_episode)
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+                registered = db.execute(
+                    "SELECT 1 FROM episodes WHERE work_id=? AND episode=?",
+                    (work, as_of),
+                ).fetchone()
+                if not registered:
+                    _fatal("reference episode is not registered")
+                value = check_draft(db, work, episode, records, as_of)
         elif args.command == "query-state":
             from .state_query import query_state
             db_path = root / DB_NAME

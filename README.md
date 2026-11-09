@@ -34,6 +34,10 @@ LLM의 JSON 후보(state_change 종류 중 state_set)의 예시:
 
 설계: [현재 상태 설계](docs/superpowers/specs/2026-11-09-novelgraph-current-state-design.md) · [개발 계획](docs/superpowers/plans/2026-11-09-novelgraph-current-state.md)
 
+## 초고 읽기 전용 충돌 검사 (2026-11-09 개발 브랜치)
+
+`draft-gate --source <원고> --input <JSON 후보> --as-of-episode N`로 직전 N화의 승인 상태와 초고를 비교한다. 명백한 수치·시간·계약 충돌은 REJECTED, 나머지는 NEEDS_REVIEW를 반환한다. 둘 다 공식 확정이 아니며 DB를 변경하지 않는다. 서로 구분되지 않은 현금·유동자산의 금액 합계도 보류한다. [세부 내용](docs/36-safety-gates-2026-11-09.md).
+
 ## 범위에서 제외
 
 - 자동 집필 및 다음 화 생성
