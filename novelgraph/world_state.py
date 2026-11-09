@@ -185,6 +185,22 @@ def _init_tables(db: sqlite3.Connection):
     )""")
 
 
+def _assert_candidate_integrity(row):
+    """Verify stored candidate evidence/payload against its immutable SHA ID."""
+    try:
+        canonical = json.dumps(
+            [row["work_id"], row["episode"], row["source_sha256"],
+             row["kind"], json.loads(row["payload_json"]),
+             row["evidence_start"], row["evidence_end"], row["evidence_text"]],
+            sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise ValueError("candidate payload is invalid") from exc
+    if hashlib.sha256(canonical).hexdigest() != row["candidate_id"]:
+        _fail("stored candidate integrity hash mismatch")
+
+
 def _candidate(db, candidate_id, sha, text):
     _id(candidate_id, "candidate_id")
     db.row_factory = sqlite3.Row
@@ -199,17 +215,7 @@ def _candidate(db, candidate_id, sha, text):
     start, end, quote = row["evidence_start"], row["evidence_end"], row["evidence_text"]
     if not (0 <= start < end <= len(text)) or text[start:end] != quote:
         _fail("candidate evidence is no longer valid against source")
-    try:
-        canonical = json.dumps(
-            [row["work_id"], row["episode"], row["source_sha256"],
-             row["kind"], json.loads(row["payload_json"]), start, end, quote],
-            sort_keys=True, ensure_ascii=False, separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8")
-    except (TypeError, ValueError, UnicodeError) as exc:
-        raise ValueError("candidate payload is invalid") from exc
-    if hashlib.sha256(canonical).hexdigest() != row["candidate_id"]:
-        _fail("stored candidate integrity hash mismatch")
+    _assert_candidate_integrity(row)
     return row
 
 
@@ -381,6 +387,7 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
                     row["payload_json"], row["effective_episode"]
                 )):
             _fail("applied event does not match approved candidate")
+        _assert_candidate_integrity(candidate)
         event = json.loads(row["payload_json"])
         kind = row["event_type"]
         actor = event["actor_id"]
@@ -390,6 +397,9 @@ def _replay(db, work_id, as_of_episode, *, known_at_episode=None):
                 "value": event["value"], "source_episode": row["source_episode"],
                 "effective_episode": row["effective_episode"],
                 "candidate_id": row["candidate_id"], "certainty": "approved",
+                "story_time": (event["value"] if category == "time"
+                               else state["current_time"]["value"]
+                               if state["current_time"] else None),
                 "evidence": {
                     "text": candidate["evidence_text"],
                     "start": candidate["evidence_start"],

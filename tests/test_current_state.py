@@ -108,6 +108,35 @@ class CurrentStateTests(unittest.TestCase):
         self.assertIn("time", self.apply(rejected, expected=2).lower())
         self.assertEqual(self.state(3)["current_time"]["value"], "1893-11-08")
 
+    def test_story_time_of_change_is_recorded_when_known(self):
+        first = self.stage(1, "지금은 1893년 11월 5일이다.",
+                           self.event("time", "current", "1893-11-05",
+                                      actor_id="fixture"))
+        self.apply(first)
+        second = self.stage(2, "에블린이 주식 50주를 샀다.",
+                            self.event("stock", "company-x", "50", unit="shares"))
+        self.apply(second)
+        self.assertEqual(self.state(2)["facts"]["evelyn"]["stock"]["company-x"]
+                         ["story_time"], "1893-11-05")
+        third = self.stage(3, "지금은 1893년 11월 7일이다.",
+                           self.event("time", "current", "1893-11-07",
+                                      actor_id="fixture"))
+        self.apply(third)
+        self.assertEqual(self.state(3)["facts"]["evelyn"]["stock"]["company-x"]
+                         ["story_time"], "1893-11-05")
+
+    def test_tampered_applied_evidence_fails_closed(self):
+        cid = self.stage(1, "에블린의 계좌에 100달러가 있다.",
+                         self.event("liquid", "bank", "100", unit="USD"))
+        self.apply(cid)
+        self.assertEqual(self.state(1)["facts"]["evelyn"]["liquid"]["bank"]["value"], "100")
+        with sqlite3.connect(self.root / "novelgraph.sqlite") as db:
+            db.execute("UPDATE candidates SET evidence_text=? WHERE candidate_id=?",
+                       ("X" * len("에블린의 계좌에 100달러가 있다."), cid))
+        self.assertIn("integrity", self.cli(
+            "world-state", "--work-id", "fixture", "--episode", "1",
+            expected=2).lower())
+
     def test_unapproved_and_invalid_values_never_change_current(self):
         pending = self.stage(1, "소문으로는 현금 5000달러다.",
                              self.event("liquid", "bank", "5000", unit="USD"))

@@ -396,5 +396,52 @@ class GraphifyProjectionTests(unittest.TestCase):
         self.assertEqual(before, after)
 
 
+    def test_current_state_graph_points_to_latest_applied_event(self):
+        self.stage(1, [
+            ("에블린이 등장했다.", "entity", self.entity("evelyn", "에블린", "person")),
+            ("오로라가 등장했다.", "entity", self.entity("aurora", "오로라", "organization")),
+            ("보유 주식 가치는 2000달러.", "state_change", {
+                "event_type": "state_set", "actor_id": "evelyn",
+                "category": "stock", "item_id": "aurora", "value": "2000",
+                "unit": "USD"}),
+        ], apply_states=True)
+        latest = self.stage(2, [
+            ("보유 주식 가치는 3000달러.", "state_change", {
+                "event_type": "state_set", "actor_id": "evelyn",
+                "category": "stock", "item_id": "aurora", "value": "3000",
+                "unit": "USD"}),
+        ], apply_states=True)[0]
+        self.export(2)
+        graph = load_node_link_graph(self.graph_path)
+        state = "state:evelyn:stock:aurora"
+        self.assertEqual(graph.nodes[state]["value"], "3000")
+        self.assertEqual(graph.nodes[state]["source_episode"], 2)
+        self.assertTrue(graph.has_edge("entity:evelyn", state))
+        self.assertTrue(graph.has_edge(state, f"event:{latest}"))
+        self.assertTrue(graph.has_edge(state, "entity:aurora"))
+        traced = self.trace(2, "entity:evelyn", state)
+        self.assertEqual(traced["path"][-1], state)
+
+    def test_unapplied_current_state_is_absent_from_graph(self):
+        candidate = self.stage(1, [
+            ("친구가 되었다.", "state_change", {
+                "event_type": "state_set", "actor_id": "evelyn",
+                "category": "relationship", "item_id": "franklin", "value": "friend",
+                "relation_status": "active"}),
+        ])[0]
+        self.export(1)
+        graph = load_node_link_graph(self.graph_path)
+        self.assertNotIn("state:evelyn:relationship:franklin", graph)
+        self.cli("apply-approved", "--source", str(self.source_paths[1]),
+                 "--candidate-id", candidate)
+        self.export(1, overwrite=True)
+        graph = load_node_link_graph(self.graph_path)
+        self.assertEqual(
+            graph.nodes["state:evelyn:relationship:franklin"]["relation_status"],
+            "active")
+        self.assertTrue(graph.has_edge("state:evelyn:relationship:franklin",
+                                       "entity:franklin"))
+
+
 if __name__ == "__main__":
     unittest.main()
