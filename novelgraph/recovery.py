@@ -4,6 +4,8 @@ Never replace the live ledger or treat a backup as user approval.
 """
 from __future__ import annotations
 
+from .privacy import private_path
+
 from contextlib import closing
 import hashlib
 import os
@@ -16,9 +18,9 @@ def _validated_database(path: Path, *, label: str) -> Path:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"{label} database does not exist or is not a regular file")
     mode = path.stat().st_mode
-    if mode & 0o077:
+    if not private_path(path):
         raise ValueError(f"{label} database must be private")
-    if not mode & 0o400:
+    if os.name != "nt" and not mode & 0o400:
         raise ValueError(f"{label} database must be owner-readable")
     return path
 
@@ -32,7 +34,7 @@ def _destination(raw: str, root: Path) -> Path:
     parent = target.parent.resolve(strict=True)
     if not parent.is_relative_to(root):
         raise ValueError("database output must be under the private data root")
-    if not parent.is_dir() or parent.stat().st_mode & 0o077:
+    if not parent.is_dir() or not private_path(parent):
         raise ValueError("database output parent must be private")
     return parent / target.name
 

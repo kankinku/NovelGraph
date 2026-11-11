@@ -5,6 +5,8 @@ All real inputs must stay outside the public Git repository.
 """
 from __future__ import annotations
 
+from .privacy import private_path
+
 import argparse
 import hashlib
 import json
@@ -29,7 +31,7 @@ def _data_root(raw: str) -> Path:
     root = Path(raw).resolve(strict=True)
     if not root.is_dir():
         _fatal("data root must be a directory")
-    if root.stat().st_mode & 0o077:
+    if not private_path(root):
         _fatal("private data root must deny access to group and others")
     code_root = Path(__file__).resolve().parents[1]
     if root.is_relative_to(code_root):
@@ -119,7 +121,7 @@ def _valid_candidates(document: dict, text: str, digest: str) -> tuple[str, int,
 def _connect(path: Path) -> sqlite3.Connection:
     if path.is_symlink():
         _fatal("database symlinks are forbidden")
-    if path.exists() and (not path.is_file() or path.stat().st_mode & 0o077):
+    if path.exists() and (not path.is_file() or not private_path(path)):
         _fatal("database must be a private regular file")
     previous = os.umask(0o077)
     try:
@@ -219,7 +221,7 @@ def audit_source_version(root: Path, work: str, episode: int, source: Path) -> d
     db_path = root / DB_NAME
     if db_path.is_symlink() or not db_path.is_file():
         _fatal("candidate database does not exist or is not a regular file")
-    if db_path.stat().st_mode & 0o077:
+    if not private_path(db_path):
         _fatal("candidate database must be private")
     with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
         registered = db.execute(
@@ -313,11 +315,11 @@ def _graph_output_path(raw: str, root: Path, *, allow_existing: bool = False) ->
     if output.name != "graph.json" or output.is_symlink():
         _fatal("Graphify output must be a regular file named graph.json")
     parent = output.parent.resolve(strict=True)
-    if not parent.is_relative_to(root) or parent.stat().st_mode & 0o077:
+    if not parent.is_relative_to(root) or not private_path(parent):
         _fatal("Graphify output parent must be under the private data root")
     resolved = parent / output.name
     if resolved.exists():
-        if not resolved.is_file() or resolved.stat().st_mode & 0o077:
+        if not resolved.is_file() or not private_path(resolved):
             _fatal("existing graph output must be a private regular file")
         if not allow_existing:
             _fatal("graph.json already exists; use --overwrite to regenerate")
@@ -548,7 +550,7 @@ def main(argv: list[str] | None = None) -> int:
             db_path = root / DB_NAME
             if db_path.is_symlink() or not db_path.is_file():
                 _fatal("candidate database does not exist or is not a regular file")
-            if db_path.stat().st_mode & 0o077:
+            if not private_path(db_path):
                 _fatal("candidate database must be private")
             with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
                 value = audit_reviews(
@@ -560,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
             db_path = root / DB_NAME
             if db_path.is_symlink() or not db_path.is_file():
                 _fatal("candidate database does not exist or is not a regular file")
-            if db_path.stat().st_mode & 0o077:
+            if not private_path(db_path):
                 _fatal("candidate database must be private")
             with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
                 value = audit_identities(
@@ -606,7 +608,7 @@ def main(argv: list[str] | None = None) -> int:
             db_path = root / DB_NAME
             if db_path.is_symlink() or not db_path.is_file():
                 _fatal("candidate database does not exist or is not a regular file")
-            if db_path.stat().st_mode & 0o077:
+            if not private_path(db_path):
                 _fatal("candidate database must be private")
             work = _check_work_id(args.work_id)
             episode = _check_episode(args.episode)
@@ -632,7 +634,7 @@ def main(argv: list[str] | None = None) -> int:
             db_path = root / DB_NAME
             if db_path.is_symlink() or not db_path.is_file():
                 _fatal("candidate database does not exist or is not a regular file")
-            if db_path.stat().st_mode & 0o077:
+            if not private_path(db_path):
                 _fatal("candidate database must be private")
             as_of = _check_episode(args.as_of_episode)
             with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
@@ -648,7 +650,7 @@ def main(argv: list[str] | None = None) -> int:
             db_path = root / DB_NAME
             if db_path.is_symlink() or not db_path.is_file():
                 _fatal("candidate database does not exist or is not a regular file")
-            if db_path.stat().st_mode & 0o077:
+            if not private_path(db_path):
                 _fatal("candidate database must be private")
             with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
                 work = _check_work_id(args.work_id)

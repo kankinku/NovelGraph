@@ -4,6 +4,8 @@ This is a diagnostic snapshot, never a proof of complete manuscript extraction.
 """
 from __future__ import annotations
 
+from .privacy import private_path
+
 from pathlib import Path
 import re
 import sqlite3
@@ -51,7 +53,7 @@ def workflow_status(root: Path, work: str, episode: int, observed_sha: str) -> d
         raise ValueError("candidate database symlinks are forbidden")
     if not path.exists():
         return result
-    if not path.is_file() or path.stat().st_mode & 0o077:
+    if not path.is_file() or not private_path(path):
         raise ValueError("candidate database must be a private regular file")
 
     with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as db:
