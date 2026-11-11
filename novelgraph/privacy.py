@@ -92,7 +92,8 @@ def _windows_private_path(path: Path) -> bool:
             return False
         user = token_identity()
         owner_sid = sid_text(owner)
-        allowed = {user, "S-1-5-18", "S-1-5-32-544"}
+        # OWNER RIGHTS (S-1-3-4) applies only to the file owner; not a public group.
+        allowed = {user, "S-1-5-18", "S-1-5-32-544", "S-1-3-4"}
         if owner_sid not in allowed:
             return False
         entries = ctypes.cast(dacl, ctypes.POINTER(ACL)).contents
