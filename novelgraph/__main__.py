@@ -418,6 +418,18 @@ def main(argv: list[str] | None = None) -> int:
     query_cmd.add_argument("--subject", required=True)
     query_cmd.add_argument("--scope", required=True)
     query_cmd.add_argument("--history", action="store_true")
+    context_cmd = commands.add_parser(
+        "query-context", help="read-only approved related nodes for one subject at a prior episode"
+    )
+    context_cmd.add_argument("--work-id", required=True)
+    context_cmd.add_argument("--episode", required=True, type=int)
+    context_cmd.add_argument("--subject", required=True)
+    context_cmd.add_argument("--scope", required=True)
+    context_cmd.add_argument("--field")
+    context_cmd.add_argument("--target")
+    context_cmd.add_argument("--max-hops", type=int, default=2)
+    context_cmd.add_argument("--max-facts", type=int, default=25)
+    context_cmd.add_argument("--cursor")
     draft_cmd = commands.add_parser(
         "draft-gate", help="read-only deterministic conflicts against approved current state"
     )
@@ -645,6 +657,16 @@ def main(argv: list[str] | None = None) -> int:
                 if not registered:
                     _fatal("reference episode is not registered")
                 value = check_draft(db, work, episode, records, as_of)
+        elif args.command == "query-context":
+            from .context_query import query_context
+            db_path = root / DB_NAME
+            if db_path.is_symlink() or not db_path.is_file() or not private_path(db_path):
+                _fatal("candidate database must be a private regular file")
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as db:
+                value = query_context(db, _check_work_id(args.work_id),
+                    _check_episode(args.episode), args.subject, args.scope,
+                    field=args.field, target=args.target, max_hops=args.max_hops,
+                    max_facts=args.max_facts, cursor=args.cursor)
         elif args.command == "query-state":
             from .state_query import query_state
             db_path = root / DB_NAME
