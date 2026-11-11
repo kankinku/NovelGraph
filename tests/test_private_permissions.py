@@ -26,9 +26,11 @@ class PrivatePermissionsTests(unittest.TestCase):
             folder = Path(tmp) / "private"
             folder.mkdir()
             secure_script = Path(__file__).resolve().parents[1] / "scripts" / "secure-windows-test-folder.ps1"
-            subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-File",
-                            str(secure_script), str(folder)], check=True, capture_output=True)
-            self.assertTrue(private_path(folder), "Owner-only ACL should be accepted")
+            hardened = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-File",
+                                       str(secure_script), str(folder)], capture_output=True, text=True)
+            self.assertEqual(hardened.returncode, 0, hardened.stdout + hardened.stderr)
+            listing = subprocess.run(["icacls", str(folder)], capture_output=True, text=True)
+            self.assertTrue(private_path(folder), "Owner-only ACL should be accepted: " + listing.stdout + listing.stderr)
             file = folder / "novelgraph.sqlite"
             file.write_bytes(b"test")
             self.assertTrue(private_path(file), "New files should inherit owner-only ACL")
