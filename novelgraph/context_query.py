@@ -63,7 +63,9 @@ def _neighbors(graph, entity):
         if graph.nodes[middle].get("kind") not in MIDDLE_KINDS:
             continue
         adjacent = set(graph.successors(middle)) | set(graph.predecessors(middle))
-        targets = [node for node in adjacent if node.startswith("entity:") and node != entity]
+        targets = [node for node in adjacent
+                   if node.startswith("entity:") and node != entity
+                   and graph.nodes[node].get("kind") == "entity"]
         yield middle, sorted(targets)
 
 

@@ -121,6 +121,22 @@ class ContextQueryTests(unittest.TestCase):
         self.assertEqual(self.context(1,subject='ghost-z')['status'],'not_found')
         self.assertEqual(self.context(1,subject='a',target='ghost-z')['status'],'not_found')
 
+    def test_unresolved_reference_does_not_bridge_two_approved_people(self):
+        # A and C are confirmed identities, but the intermediary is not.
+        # Its presence in approved relations must not create a verified A→C path.
+        self.stage(1, [
+            ('A의 신원이 확정됐다.', 'entity',
+             {'entity_id':'a','entity_type':'person','name':'A'}),
+            ('C의 신원이 확정됐다.', 'entity',
+             {'entity_id':'c','entity_type':'person','name':'C'}),
+            ('A는 신원 미확정 인물과 만났다.', 'relation',
+             {'source_id':'a','target_id':'unverified-person','relation_type':'met_unknown'}),
+            ('신원 미확정 인물은 C를 알고 있다.', 'relation',
+             {'source_id':'unverified-person','target_id':'c','relation_type':'knows_c'}),
+        ])
+        result = self.context(1,subject='a',scope='relations',max_hops=2)
+        self.assertNotIn('knows_c', [f.get('value') for f in result['facts']])
+
     def test_unapproved_and_read_only(self):
         self.fixture()
         self.stage(4,[('A가 C에게 비밀 약속을 했다.', 'relation',{'source_id':'a','target_id':'c','relation_type':'secret'})],approve=False)
