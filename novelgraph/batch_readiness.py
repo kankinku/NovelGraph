@@ -1,5 +1,6 @@
 """Read-only 1..43 episode coverage check; no source text in results."""
 from pathlib import Path
+from .privacy import private_path
 import sqlite3
 from urllib.parse import quote
 from .pilot_eval import _manifest
@@ -19,7 +20,7 @@ def check_batch(root: Path, manifest: dict, target: int = 43) -> dict:
     if dbfile.is_symlink():
         raise ValueError("database symlinks are forbidden")
     if dbfile.exists():
-        if not dbfile.is_file() or dbfile.stat().st_mode & 0o077:
+        if not dbfile.is_file() or not private_path(dbfile):
             raise ValueError("database must be a private regular file")
         uri = "file:" + quote(str(dbfile)) + "?mode=ro"
         with sqlite3.connect(uri, uri=True) as db:

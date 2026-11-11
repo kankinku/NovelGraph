@@ -4,6 +4,8 @@ Never writes to SQLite or changes approval status; model claims stay in pass two
 """
 from __future__ import annotations
 
+from .privacy import private_path
+
 import json
 import os
 from pathlib import Path
@@ -15,7 +17,7 @@ def _output_path(raw: str, root: Path) -> Path:
     output = Path(raw).absolute()
     parent = output.parent.resolve(strict=True)
     if (output.suffix != ".md" or not parent.is_relative_to(root)
-            or parent.stat().st_mode & 0o077):
+            or not private_path(parent)):
         raise ValueError("review packet output outside private root or insecure directory")
     if output.exists() or output.is_symlink():
         raise ValueError("review packet output already exists")
