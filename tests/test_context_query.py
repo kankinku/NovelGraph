@@ -111,6 +111,16 @@ class ContextQueryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 query_context(db,'other',1,'a','relations')
 
+    def test_unresolved_reference_cannot_masquerade_as_approved_entity(self):
+        self.stage(1, [
+            ('A의 신원이 확정됐다.', 'entity',
+             {'entity_id':'a','entity_type':'person','name':'A'}),
+            ('A가 알 수 없는 인물 Z를 언급했다.', 'relation',
+             {'source_id':'a','target_id':'ghost-z','relation_type':'heard_of'}),
+        ])
+        self.assertEqual(self.context(1,subject='ghost-z')['status'],'not_found')
+        self.assertEqual(self.context(1,subject='a',target='ghost-z')['status'],'not_found')
+
     def test_unapproved_and_read_only(self):
         self.fixture()
         self.stage(4,[('A가 C에게 비밀 약속을 했다.', 'relation',{'source_id':'a','target_id':'c','relation_type':'secret'})],approve=False)

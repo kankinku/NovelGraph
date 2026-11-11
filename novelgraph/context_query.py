@@ -20,7 +20,9 @@ def _identity(graph, name):
         raise ValueError("subject or target must be an ID or verified name")
     ident = f"entity:{name}"
     if ident in graph:
-        return ident, "ok"
+        # A link to an unregistered entity is only an unresolved reference,
+        # not an approved identity the writer may treat as a fact.
+        return (ident, "ok") if graph.nodes[ident].get("kind") == "entity" else (None, "not_found")
     matches = [node for node, attributes in graph.nodes(data=True)
                if node.startswith("entity:") and attributes.get("kind") == "entity"
                and attributes.get("label") == name]
