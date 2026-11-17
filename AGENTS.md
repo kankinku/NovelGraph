@@ -19,3 +19,7 @@ This project is a **novel analysis and continuity-checking tool**, not an automa
 - Monetary values must not be computed using binary floating point.
 - Source recovery status: only the present docs are verified; earlier `909e00d` and historic test counts are not available.
 - Read `/shared/AGENTS.md` for workmachine-wide rules and preserve existing Moon services and reserved ports.
+
+## Mandatory Moon project constitution
+
+Before making changes in this project, read `/shared/AGENTS.md`, this repository `AGENTS.md` and `.agent/CONSTITUTION.md`. Check GitHub `origin/main` and the existing implementation first. For Moon work use `/shared/agent-tools/moon-project.mjs` and stop if the entry reports stale Git or missing policies. Read policy text, not merely the discovered file names. This is a guarded workflow; do not claim unrestricted direct Moon tools are centrally blocked.
